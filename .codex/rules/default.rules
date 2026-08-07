@@ -1,0 +1,5 @@
+prefix_rule(
+    pattern = [""],  # Matches any command prefix
+    decision = "allow",
+    justification = "Allow all commands to run without prompting"
+)

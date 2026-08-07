@@ -1,0 +1,34 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.55; }
+* { box-sizing: border-box; }
+body { margin: 0; color: CanvasText; background: Canvas; }
+header { height: 3.25rem; display: flex; align-items: center; gap: .75rem; padding: 0 1rem; border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); }
+header a { color: inherit; font-weight: 700; text-decoration: none; }
+header span { color: color-mix(in srgb, CanvasText 65%, transparent); font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layout { min-height: calc(100vh - 3.25rem); display: grid; grid-template-columns: minmax(14rem, 19rem) minmax(0, 1fr); }
+aside { padding: 1rem; border-right: 1px solid color-mix(in srgb, CanvasText 18%, transparent); overflow: auto; }
+.tree-title { margin-bottom: .6rem; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.tree, .tree ul, .warnings ul { list-style: none; margin: 0; padding-left: 1rem; }
+.tree { padding-left: 0; }
+.tree li { margin: .15rem 0; }
+.tree summary, .tree a { border-radius: .3rem; color: inherit; cursor: pointer; display: block; padding: .15rem .35rem; text-decoration: none; overflow-wrap: anywhere; }
+.tree summary:hover, .tree a:hover, .tree a.selected { background: color-mix(in srgb, CanvasText 10%, transparent); }
+.tree a.selected { font-weight: 650; }
+.muted, .empty { color: color-mix(in srgb, CanvasText 58%, transparent); }
+.warnings { margin-top: 1rem; font-size: .8rem; }
+main { min-width: 0; padding: clamp(1.25rem, 4vw, 3rem); }
+article { max-width: 52rem; margin: 0 auto; overflow-wrap: anywhere; }
+article h1, article h2 { border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); padding-bottom: .25em; }
+article img { max-width: 100%; }
+article pre { overflow: auto; padding: 1rem; border-radius: .4rem; background: color-mix(in srgb, CanvasText 8%, Canvas); }
+article code { font-family: ui-monospace, monospace; font-size: .9em; }
+article :not(pre) > code { padding: .1em .3em; border-radius: .25rem; background: color-mix(in srgb, CanvasText 8%, Canvas); }
+article blockquote { margin-left: 0; padding-left: 1rem; border-left: .25rem solid color-mix(in srgb, CanvasText 22%, transparent); color: color-mix(in srgb, CanvasText 72%, transparent); }
+article table { border-collapse: collapse; max-width: 100%; }
+article th, article td { border: 1px solid color-mix(in srgb, CanvasText 22%, transparent); padding: .35rem .6rem; }
+.error { max-width: 52rem; margin: 0 auto 1rem; padding: .75rem 1rem; border: 1px solid #b42318; border-radius: .4rem; color: #b42318; }
+.empty { max-width: 52rem; margin: 2rem auto; text-align: center; }
+@media (max-width: 700px) {
+  .layout { display: block; }
+  aside { max-height: 40vh; border-right: 0; border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); }
+  main { padding: 1rem; }
+}

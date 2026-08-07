@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{if .Selected}}{{.Selected}} · {{end}}serve-md</title>
+  <style>/* STYLE */</style>
+</head>
+<body>
+  <header><a href="/">serve-md</a><span>{{.RootName}}</span></header>
+  <div class="layout">
+    <aside aria-label="Markdown files">
+      <div class="tree-title">Markdown files</div>
+      {{if .Empty}}<p class="muted">No Markdown files found.</p>{{else}}<ul class="tree">{{template "nodes" .Tree}}</ul>{{end}}
+      {{if .Warnings}}<details class="warnings"><summary>Some paths could not be read</summary><ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul></details>{{end}}
+    </aside>
+    <main>
+      {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
+      {{if .HasFile}}<article>{{.Content}}</article>{{else if not .Error}}<div class="empty">Select a Markdown file from the folder tree.</div>{{end}}
+    </main>
+  </div>
+</body>
+</html>
+{{define "nodes"}}
+  {{range .}}
+    <li>
+      {{if .IsDir}}
+        <details {{if .Open}}open{{end}}><summary>{{.Name}}</summary><ul>{{template "nodes" .Children}}</ul></details>
+      {{else}}
+        <a {{if .Selected}}class="selected" aria-current="page"{{end}} href="/view?path={{urlquery .Path}}">{{.Name}}</a>
+      {{end}}
+    </li>
+  {{end}}
+{{end}}
