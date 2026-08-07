@@ -9,7 +9,9 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
 
@@ -138,7 +141,7 @@ func (a *App) renderPage(w http.ResponseWriter, selected string) {
 			return
 		}
 		var rendered bytes.Buffer
-		if err := a.markdown.Convert(source, &rendered); err != nil {
+		if err := a.renderMarkdown(source, selected, &rendered); err != nil {
 			data.Error = fmt.Sprintf("Could not render %s: %v", selected, err)
 			a.execute(w, http.StatusInternalServerError, data)
 			return
@@ -147,6 +150,48 @@ func (a *App) renderPage(w http.ResponseWriter, selected string) {
 		data.HasFile = true
 	}
 	a.execute(w, http.StatusOK, data)
+}
+
+func (a *App) renderMarkdown(source []byte, selected string, output *bytes.Buffer) error {
+	document := a.markdown.Parser().Parse(text.NewReader(source))
+	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if entering && node.Kind() == ast.KindLink {
+			link := node.(*ast.Link)
+			link.Destination = rewriteMarkdownLink(link.Destination, selected)
+		}
+		return ast.WalkContinue, nil
+	})
+	if err != nil {
+		return err
+	}
+	return a.markdown.Renderer().Render(output, source, document)
+}
+
+func rewriteMarkdownLink(destination []byte, selected string) []byte {
+	target, err := url.Parse(string(destination))
+	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
+		return destination
+	}
+	extension := strings.ToLower(path.Ext(target.Path))
+	if extension != ".md" && extension != ".markdown" {
+		return destination
+	}
+
+	markdownPath := target.Path
+	if strings.HasPrefix(markdownPath, "/") {
+		markdownPath = strings.TrimPrefix(markdownPath, "/")
+	} else {
+		markdownPath = path.Join(path.Dir(selected), markdownPath)
+	}
+	markdownPath = path.Clean(markdownPath)
+
+	query := target.Query()
+	query.Set("path", markdownPath)
+	return []byte((&url.URL{
+		Path:     "/view",
+		RawQuery: query.Encode(),
+		Fragment: target.Fragment,
+	}).String())
 }
 
 func (a *App) renderError(w http.ResponseWriter, status int, message, selected string) {

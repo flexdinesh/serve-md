@@ -21,7 +21,7 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	if landing.Code != http.StatusOK {
 		t.Fatalf("landing status = %d, want %d", landing.Code, http.StatusOK)
 	}
-	assertContains(t, landing.Body.String(), "docs", "Guide.MD", "Select a Markdown file")
+	assertContains(t, landing.Body.String(), "<summary>docs/</summary>", "Guide.MD", "Select a Markdown file")
 	if strings.Contains(landing.Body.String(), ">empty<") {
 		t.Fatal("landing includes a directory with no Markdown descendants")
 	}
@@ -55,6 +55,34 @@ func TestAppRescansOnEveryRequest(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "second.md"), "# Second\n")
 	second := request(t, app, "/")
 	assertContains(t, second.Body.String(), "first.md", "second.md")
+}
+
+func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "README.md"), "# Home\n")
+	writeMarkdown(t, filepath.Join(root, "docs", "Guide.MD"), strings.Join([]string{
+		"[root](../README.md#top)",
+		"[sibling](Other.markdown?plain=1#details)",
+		"[root relative](/README.md)",
+		"[external](https://example.com/README.md)",
+		"[anchor](#section)",
+		"[other file](notes.txt)",
+	}, "\n\n"))
+	writeMarkdown(t, filepath.Join(root, "docs", "Other.markdown"), "# Other\n")
+
+	document := request(t, newTestApp(t, root), "/view?path=docs%2FGuide.MD")
+	if document.Code != http.StatusOK {
+		t.Fatalf("document status = %d, want %d", document.Code, http.StatusOK)
+	}
+	body := document.Body.String()
+	assertContains(t, body,
+		`href="/view?path=README.md#top"`,
+		`href="/view?path=docs%2FOther.markdown&amp;plain=1#details"`,
+		`href="/view?path=README.md"`,
+		`href="https://example.com/README.md"`,
+		`href="#section"`,
+		`href="notes.txt"`,
+	)
 }
 
 func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {

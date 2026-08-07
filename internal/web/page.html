@@ -25,7 +25,7 @@
   {{range .}}
     <li>
       {{if .IsDir}}
-        <details {{if .Open}}open{{end}}><summary>{{.Name}}</summary><ul>{{template "nodes" .Children}}</ul></details>
+        <details {{if .Open}}open{{end}}><summary>{{.Name}}/</summary><ul>{{template "nodes" .Children}}</ul></details>
       {{else}}
         <a {{if .Selected}}class="selected" aria-current="page"{{end}} href="/view?path={{urlquery .Path}}">{{.Name}}</a>
       {{end}}
