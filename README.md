@@ -10,6 +10,9 @@ Go 1.24 or later is required.
 go install github.com/flexdinesh/serve-md@latest
 ```
 
+`@latest` installs the most recent published release. To install a specific release, replace
+`latest` with its tag, such as `v0.1.0`.
+
 To install the binary from a local source checkout instead:
 
 ```sh
@@ -61,6 +64,18 @@ go run . .
 go run . --help
 go run . ./docs --port 8080 --depth 3
 ```
+
+## Releasing
+
+Releases are created from GitHub Actions:
+
+1. Make sure the `main` branch is green in CI.
+2. Open **Actions → Release → Run workflow**.
+3. Enter the next semantic version, including the `v` prefix (for example, `v0.1.0`).
+
+The workflow checks out `main`, validates and tests it, then creates the version tag and a
+GitHub Release with generated release notes. Once the tag is available through the Go module
+proxy, users can install it with the `go install` command above.
 
 ## Usage
 
