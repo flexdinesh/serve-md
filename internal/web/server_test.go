@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -41,6 +43,141 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	if got := document.Header().Get("Content-Security-Policy"); got == "" {
 		t.Fatal("Content-Security-Policy is empty")
 	}
+	assertContains(t, landing.Body.String(), `id="search-dialog"`, `id="search-input"`, `src="/assets/search.js"`)
+}
+
+func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), strings.Join([]string{
+		"# Install Guide",
+		"Read the **setup instructions** and [reference](https://example.com).",
+		"Use `serve-md`.",
+		"```sh",
+		"serve-md docs",
+		"```",
+		"<script>hiddenMarkup()</script>",
+	}, "\n\n"))
+	writeMarkdown(t, filepath.Join(root, "node_modules", "ignored.md"), "# Ignored")
+
+	response := request(t, newTestApp(t, root), "/api/search-documents")
+	if response.Code != http.StatusOK {
+		t.Fatalf("search status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if got := response.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := response.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", got)
+	}
+
+	var payload searchDocumentsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Documents) != 1 {
+		t.Fatalf("documents = %#v, want one", payload.Documents)
+	}
+	document := payload.Documents[0]
+	if document.Path != "docs/Guide.md" || document.Name != "Guide.md" {
+		t.Fatalf("document identity = %#v", document)
+	}
+	assertContains(t, document.Content, "Install Guide", "setup instructions", "reference", "serve-md", "serve-md docs", "hiddenMarkup")
+	for _, unwanted := range []string{"https://example.com", "**", "```", root} {
+		if strings.Contains(document.Content, unwanted) {
+			t.Errorf("search content contains %q: %s", unwanted, document.Content)
+		}
+	}
+}
+
+func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "first.md"), "# First")
+	app := newTestApp(t, root)
+
+	first := request(t, app, "/api/search-documents")
+	assertContains(t, first.Body.String(), "first.md")
+	writeMarkdown(t, filepath.Join(root, "second.md"), "# Second")
+	second := request(t, app, "/api/search-documents")
+	assertContains(t, second.Body.String(), "first.md", "second.md")
+
+	originalReadFile := app.readFile
+	app.readFile = func(name string) ([]byte, error) {
+		if filepath.Base(name) == "second.md" {
+			return nil, errors.New("test read failure")
+		}
+		return originalReadFile(name)
+	}
+	partial := request(t, app, "/api/search-documents")
+	if partial.Code != http.StatusOK {
+		t.Fatalf("partial status = %d, want %d", partial.Code, http.StatusOK)
+	}
+	var payload searchDocumentsResponse
+	if err := json.Unmarshal(partial.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Documents) != 1 || payload.Documents[0].Path != "first.md" {
+		t.Fatalf("partial documents = %#v", payload.Documents)
+	}
+	if len(payload.Warnings) != 1 || !strings.Contains(payload.Warnings[0], "second.md: test read failure") {
+		t.Fatalf("warnings = %#v", payload.Warnings)
+	}
+}
+
+func TestSearchDocumentsEncodesHostileMarkdownAsJSON(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "hostile.md"), "# Safe\n\nText </script><script>alert(1)</script> tail")
+	response := request(t, newTestApp(t, root), "/api/search-documents")
+	if strings.Contains(response.Body.String(), "</script>") {
+		t.Fatalf("JSON response contains an unescaped script terminator: %s", response.Body.String())
+	}
+	var payload searchDocumentsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Documents) != 1 {
+		t.Fatalf("documents = %#v", payload.Documents)
+	}
+}
+
+func TestSearchDocumentsReturnsJSONForFatalScan(t *testing.T) {
+	root := t.TempDir()
+	app := newTestApp(t, root)
+	if err := os.Remove(root); err != nil {
+		t.Fatal(err)
+	}
+	response := request(t, app, "/api/search-documents")
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("search status = %d, want %d", response.Code, http.StatusInternalServerError)
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Error == "" {
+		t.Fatal("JSON error is empty")
+	}
+}
+
+func TestBrowserAssetsAndSearchCSP(t *testing.T) {
+	app := newTestApp(t, t.TempDir())
+	for _, target := range []string{
+		"/assets/search.js",
+		"/assets/search-controller.js",
+		"/assets/search-view.js",
+		"/assets/search-worker.js",
+		"/assets/vendor/minisearch.min.js",
+	} {
+		response := request(t, app, target)
+		if response.Code != http.StatusOK {
+			t.Errorf("GET %s status = %d, want %d", target, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("Content-Type"); got != "text/javascript; charset=utf-8" {
+			t.Errorf("GET %s Content-Type = %q", target, got)
+		}
+	}
+	response := request(t, app, "/")
+	csp := response.Header().Get("Content-Security-Policy")
+	assertContains(t, csp, "script-src 'self'", "worker-src 'self'", "connect-src 'self'")
 }
 
 func TestAppRescansOnEveryRequest(t *testing.T) {
@@ -121,6 +258,13 @@ func TestAppRejectsUnknownRoutesAndMethods(t *testing.T) {
 	app.ServeHTTP(response, req)
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/search-documents", nil)
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, req)
+	if response.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST search status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
 	}
 }
 

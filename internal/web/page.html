@@ -19,6 +19,15 @@
       {{if .HasFile}}<article>{{.Content}}</article>{{else if not .Error}}<div class="empty">Select a Markdown file from the folder tree.</div>{{end}}
     </main>
   </div>
+  <dialog id="search-dialog" class="search-dialog" aria-labelledby="search-title">
+    <div class="search-shell">
+      <h2 id="search-title" class="visually-hidden">Search Markdown files</h2>
+      <input id="search-input" class="search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Search files and content…" role="combobox" aria-controls="search-results" aria-expanded="false" aria-autocomplete="list">
+      <div id="search-status" class="search-status" role="status" aria-live="polite"></div>
+      <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
+    </div>
+  </dialog>
+  <script type="module" src="/assets/search.js"></script>
 </body>
 </html>
 {{define "nodes"}}

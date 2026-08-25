@@ -16,12 +16,21 @@ Serve the current directory:
 serve-md .
 ```
 
+Press <kbd>Command</kbd>+<kbd>K</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>K</kbd> elsewhere to search Markdown file paths and contents in the browser.
+
 ## Development
 
 Install dependencies:
 
 ```sh
 go mod download
+```
+
+Run the Go and browser search tests:
+
+```sh
+go test ./...
+node --test internal/web/*.test.mjs
 ```
 
 Build and run locally:

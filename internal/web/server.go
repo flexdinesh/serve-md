@@ -4,6 +4,7 @@ package web
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -24,8 +25,17 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-//go:embed page.html style.css
+//go:embed page.html style.css search.js search-controller.js search-view.js search-worker.js vendor/minisearch.min.js vendor/MINISEARCH-LICENSE.txt
 var assets embed.FS
+
+var browserAssets = map[string]string{
+	"/assets/search.js":                     "search.js",
+	"/assets/search-controller.js":          "search-controller.js",
+	"/assets/search-view.js":                "search-view.js",
+	"/assets/search-worker.js":              "search-worker.js",
+	"/assets/vendor/minisearch.min.js":      "vendor/minisearch.min.js",
+	"/assets/vendor/MINISEARCH-LICENSE.txt": "vendor/MINISEARCH-LICENSE.txt",
+}
 
 // Config controls the live file scan performed for each request.
 type Config struct {
@@ -39,6 +49,7 @@ type App struct {
 	config   Config
 	template *template.Template
 	markdown goldmark.Markdown
+	readFile func(string) ([]byte, error)
 }
 
 type pageData struct {
@@ -61,6 +72,21 @@ type treeNode struct {
 	Children []treeNode
 }
 
+type searchDocument struct {
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type searchDocumentsResponse struct {
+	Documents []searchDocument `json:"documents"`
+	Warnings  []string         `json:"warnings"`
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
 // New constructs a request-time scanning web interface.
 func New(config Config) (*App, error) {
 	page, err := fs.ReadFile(assets, "page.html")
@@ -80,17 +106,25 @@ func New(config Config) (*App, error) {
 		goldmark.WithExtensions(extension.GFM),
 		goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(&escapedHTMLRenderer{}, 500))),
 	)
-	return &App{config: config, template: tmpl, markdown: md}, nil
+	return &App{config: config, template: tmpl, markdown: md, readFile: os.ReadFile}, nil
 }
 
 // ServeHTTP rescans the configured directory before rendering every response.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if asset, ok := browserAssets[r.URL.Path]; ok {
+		a.serveAsset(w, asset)
+		return
+	}
+	if r.URL.Path == "/api/search-documents" {
+		a.serveSearchDocuments(w)
 		return
 	}
 	if r.URL.Path != "/" && r.URL.Path != "/view" {
@@ -107,6 +141,100 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.renderPage(w, selected)
+}
+
+func (a *App) serveAsset(w http.ResponseWriter, name string) {
+	content, err := fs.ReadFile(assets, name)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	if strings.HasSuffix(name, ".js") {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	} else {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	}
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(content)
+}
+
+func (a *App) serveSearchDocuments(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+
+	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	response := searchDocumentsResponse{
+		Documents: make([]searchDocument, 0, len(index.Files)),
+		Warnings:  warningStrings(index.Warnings),
+	}
+	for _, indexedPath := range index.Files {
+		resolved, err := index.Resolve(indexedPath)
+		if err != nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
+			continue
+		}
+		source, err := a.readFile(resolved)
+		if err != nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
+			continue
+		}
+		content, err := a.searchText(source)
+		if err != nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
+			continue
+		}
+		response.Documents = append(response.Documents, searchDocument{
+			Path:    indexedPath,
+			Name:    path.Base(indexedPath),
+			Content: content,
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func (a *App) searchText(source []byte) (string, error) {
+	document := a.markdown.Parser().Parse(text.NewReader(source))
+	parts := make([]string, 0)
+	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch value := node.(type) {
+		case *ast.Text:
+			parts = append(parts, string(value.Value(source)))
+		case *ast.String:
+			parts = append(parts, string(value.Value))
+		case *ast.AutoLink:
+			parts = append(parts, string(value.Text(source)))
+		case *ast.CodeBlock:
+			parts = append(parts, string(value.Lines().Value(source)))
+			return ast.WalkSkipChildren, nil
+		case *ast.FencedCodeBlock:
+			parts = append(parts, string(value.Lines().Value(source)))
+			return ast.WalkSkipChildren, nil
+		case *ast.RawHTML:
+			parts = append(parts, string(value.Text(source)))
+			return ast.WalkSkipChildren, nil
+		case *ast.HTMLBlock:
+			parts = append(parts, string(value.Text(source)))
+			return ast.WalkSkipChildren, nil
+		}
+		return ast.WalkContinue, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return strings.Join(strings.Fields(strings.Join(parts, " ")), " "), nil
 }
 
 func (a *App) renderPage(w http.ResponseWriter, selected string) {
@@ -134,7 +262,7 @@ func (a *App) renderPage(w http.ResponseWriter, selected string) {
 			a.execute(w, status, data)
 			return
 		}
-		source, err := os.ReadFile(resolved)
+		source, err := a.readFile(resolved)
 		if err != nil {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			a.execute(w, http.StatusInternalServerError, data)
