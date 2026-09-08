@@ -25,10 +25,11 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-//go:embed page.html style.css search.js search-controller.js search-view.js search-worker.js vendor/minisearch.min.js vendor/MINISEARCH-LICENSE.txt
+//go:embed page.html style.css mermaid.js search.js search-controller.js search-view.js search-worker.js vendor/minisearch.min.js vendor/MINISEARCH-LICENSE.txt
 var assets embed.FS
 
 var browserAssets = map[string]string{
+	"/assets/mermaid.js":                    "mermaid.js",
 	"/assets/search.js":                     "search.js",
 	"/assets/search-controller.js":          "search-controller.js",
 	"/assets/search-view.js":                "search-view.js",
@@ -111,7 +112,7 @@ func New(config Config) (*App, error) {
 
 // ServeHTTP rescans the configured directory before rendering every response.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != http.MethodGet {

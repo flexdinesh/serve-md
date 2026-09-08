@@ -20,6 +20,10 @@ article { max-width: 52rem; margin: 0 auto; overflow-wrap: anywhere; }
 article h1, article h2 { border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); padding-bottom: .25em; }
 article img { max-width: 100%; }
 article pre { overflow: auto; padding: 1rem; border-radius: .4rem; background: color-mix(in srgb, CanvasText 8%, Canvas); }
+.mermaid-diagram { max-width: 100%; overflow-x: auto; margin: 1rem 0; }
+.mermaid-diagram svg { display: block; margin: 0 auto; }
+.mermaid-error { color: CanvasText; font-size: .85rem; }
+.mermaid-staging { position: absolute; visibility: hidden; pointer-events: none; }
 article code { font-family: ui-monospace, monospace; font-size: .9em; }
 article :not(pre) > code { padding: .1em .3em; border-radius: .25rem; background: color-mix(in srgb, CanvasText 8%, Canvas); }
 article blockquote { margin-left: 0; padding-left: 1rem; border-left: .25rem solid color-mix(in srgb, CanvasText 22%, transparent); color: color-mix(in srgb, CanvasText 72%, transparent); }

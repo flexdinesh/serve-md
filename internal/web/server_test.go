@@ -46,6 +46,40 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	assertContains(t, landing.Body.String(), `id="search-dialog"`, `id="search-input"`, `src="/assets/search.js"`)
 }
 
+func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "diagrams.md"), strings.Join([]string{
+		"```mermaid",
+		`flowchart LR`,
+		`    A["<script>alert('no')</script> & text"] --> B`,
+		"```",
+		"",
+		"```go",
+		`fmt.Println("<ordinary> & code")`,
+		"```",
+	}, "\n"))
+	app := newTestApp(t, root)
+	response := request(t, app, "/view?path=diagrams.md")
+	if response.Code != http.StatusOK {
+		t.Fatalf("document status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	assertContains(t, body,
+		"<pre><code class=\"language-mermaid\">flowchart LR\n",
+		`A[&quot;&lt;script&gt;alert('no')&lt;/script&gt; &amp; text&quot;] --&gt; B`,
+		`<pre><code class="language-go">fmt.Println(&quot;&lt;ordinary&gt; &amp; code&quot;)`,
+		`<script type="module" src="/assets/mermaid.js"></script>`,
+	)
+	if strings.Contains(body, "<script>alert") {
+		t.Fatal("Mermaid source was rendered as raw HTML")
+	}
+	for _, target := range []string{"/", "/view?path=missing.md"} {
+		if strings.Contains(request(t, app, target).Body.String(), `src="/assets/mermaid.js"`) {
+			t.Errorf("GET %s includes Mermaid module without a rendered file", target)
+		}
+	}
+}
+
 func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), strings.Join([]string{
@@ -158,9 +192,10 @@ func TestSearchDocumentsReturnsJSONForFatalScan(t *testing.T) {
 	}
 }
 
-func TestBrowserAssetsAndSearchCSP(t *testing.T) {
+func TestBrowserAssetsAndCSP(t *testing.T) {
 	app := newTestApp(t, t.TempDir())
 	for _, target := range []string{
+		"/assets/mermaid.js",
 		"/assets/search.js",
 		"/assets/search-controller.js",
 		"/assets/search-view.js",
@@ -177,7 +212,10 @@ func TestBrowserAssetsAndSearchCSP(t *testing.T) {
 	}
 	response := request(t, app, "/")
 	csp := response.Header().Get("Content-Security-Policy")
-	assertContains(t, csp, "script-src 'self'", "worker-src 'self'", "connect-src 'self'")
+	wantCSP := "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+	if csp != wantCSP {
+		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
+	}
 }
 
 func TestAppRescansOnEveryRequest(t *testing.T) {

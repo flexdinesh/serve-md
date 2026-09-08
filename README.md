@@ -18,6 +18,20 @@ serve-md .
 
 Press <kbd>Command</kbd>+<kbd>K</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>K</kbd> elsewhere to search Markdown file paths and contents in the browser.
 
+## Mermaid diagrams
+
+Fenced `mermaid` blocks render inline and follow your system's light or dark theme:
+
+````markdown
+```mermaid
+flowchart LR
+    Markdown --> Browser
+    Browser --> Diagram
+```
+````
+
+Diagrams require internet access: Mermaid 11.17.2 loads from jsDelivr only when a page contains Mermaid blocks. Diagram clicks are disabled. If loading or rendering fails, the source stays visible with a short error.
+
 ## Development
 
 Install dependencies:
@@ -26,7 +40,7 @@ Install dependencies:
 go mod download
 ```
 
-Run the Go and browser search tests:
+Run the Go and browser tests:
 
 ```sh
 go test ./...
