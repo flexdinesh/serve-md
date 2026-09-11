@@ -2,6 +2,7 @@
 /serve-md
 /serve-md.exe
 /bin/
+/node_modules/
 
 # Go test and coverage output
 /*.test

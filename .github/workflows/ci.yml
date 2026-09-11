@@ -22,11 +22,28 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Test
-        run: go test ./...
+        run: |
+          go test ./...
+          pnpm test:web
 
       - name: Vet
         run: go vet ./...
 
       - name: Build
-        run: go build ./...
+        run: |
+          pnpm build:web
+          git diff --exit-code -- internal/web/dist
+          go build ./...

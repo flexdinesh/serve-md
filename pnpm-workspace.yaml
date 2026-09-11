@@ -1,0 +1,8 @@
+packages:
+  - "."
+
+# Three-day supply-chain cooling period.
+minimumReleaseAge: 4320
+
+allowBuilds:
+  esbuild: true

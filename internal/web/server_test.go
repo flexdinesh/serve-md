@@ -3,10 +3,12 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -19,31 +21,38 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	}
 
 	app := newTestApp(t, root)
-	landing := request(t, app, "/")
+	landing, landingData := requestPageData(t, app, "/api/page")
 	if landing.Code != http.StatusOK {
 		t.Fatalf("landing status = %d, want %d", landing.Code, http.StatusOK)
 	}
-	assertContains(t, landing.Body.String(), "<summary>docs/</summary>", "Guide.MD", "Select a Markdown file")
+	assertContains(t, landing.Body.String(), "docs", "Guide.MD")
 	if strings.Contains(landing.Body.String(), ">empty<") {
 		t.Fatal("landing includes a directory with no Markdown descendants")
 	}
+	if landingData.Empty || landingData.HasFile || len(landingData.Tree) != 1 {
+		t.Fatalf("landing data = %#v", landingData)
+	}
 
-	document := request(t, app, "/view?path=docs%2FGuide.MD")
+	document, documentData := requestPageData(t, app, "/api/page?path=docs%2FGuide.MD")
 	if document.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", document.Code, http.StatusOK)
 	}
-	body := document.Body.String()
+	body := documentData.Content
 	assertContains(t, body, "<h1>Guide</h1>", "<table>", "&lt;script&gt;alert('no')&lt;/script&gt;")
 	if strings.Contains(body, "<script>alert") {
 		t.Fatal("raw Markdown HTML was rendered unsafely")
 	}
-	if got := document.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+	if got := document.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	if got := document.Header().Get("Content-Security-Policy"); got == "" {
+	shell := request(t, app, "/view?path=docs%2FGuide.MD")
+	if got := shell.Header().Get("Content-Security-Policy"); got == "" {
 		t.Fatal("Content-Security-Policy is empty")
 	}
-	assertContains(t, landing.Body.String(), `id="search-dialog"`, `id="search-input"`, `src="/assets/search.js"`)
+	assertContains(t, shell.Body.String(), `id="root"`, `id="app-data"`, `/assets/`)
+	if strings.Contains(shell.Body.String(), "{{APP_DATA}}") || strings.Contains(shell.Body.String(), "<script>alert") {
+		t.Fatal("shell contains unexpanded or unsafe app data")
+	}
 }
 
 func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
@@ -59,23 +68,22 @@ func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
 		"```",
 	}, "\n"))
 	app := newTestApp(t, root)
-	response := request(t, app, "/view?path=diagrams.md")
+	response, data := requestPageData(t, app, "/api/page?path=diagrams.md")
 	if response.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", response.Code, http.StatusOK)
 	}
-	body := response.Body.String()
+	body := data.Content
 	assertContains(t, body,
 		"<pre><code class=\"language-mermaid\">flowchart LR\n",
 		`A[&quot;&lt;script&gt;alert('no')&lt;/script&gt; &amp; text&quot;] --&gt; B`,
 		`<pre><code class="language-go">fmt.Println(&quot;&lt;ordinary&gt; &amp; code&quot;)`,
-		`<script type="module" src="/assets/mermaid.js"></script>`,
 	)
 	if strings.Contains(body, "<script>alert") {
 		t.Fatal("Mermaid source was rendered as raw HTML")
 	}
 	for _, target := range []string{"/", "/view?path=missing.md"} {
-		if strings.Contains(request(t, app, target).Body.String(), `src="/assets/mermaid.js"`) {
-			t.Errorf("GET %s includes Mermaid module without a rendered file", target)
+		if strings.Contains(request(t, app, target).Body.String(), "MermaidCanvas") {
+			t.Errorf("GET %s eagerly includes Mermaid chunk", target)
 		}
 	}
 }
@@ -194,25 +202,43 @@ func TestSearchDocumentsReturnsJSONForFatalScan(t *testing.T) {
 
 func TestBrowserAssetsAndCSP(t *testing.T) {
 	app := newTestApp(t, t.TempDir())
-	for _, target := range []string{
-		"/assets/mermaid.js",
-		"/assets/search.js",
-		"/assets/search-controller.js",
-		"/assets/search-view.js",
-		"/assets/search-worker.js",
-		"/assets/vendor/minisearch.min.js",
-	} {
+	shell := request(t, app, "/")
+	assetPattern := regexp.MustCompile(`/assets/[^"']+\.(?:css|js)`)
+	targets := assetPattern.FindAllString(shell.Body.String(), -1)
+	if len(targets) < 2 {
+		t.Fatalf("shell assets = %v", targets)
+	}
+	for _, target := range targets {
 		response := request(t, app, target)
 		if response.Code != http.StatusOK {
 			t.Errorf("GET %s status = %d, want %d", target, response.Code, http.StatusOK)
 		}
-		if got := response.Header().Get("Content-Type"); got != "text/javascript; charset=utf-8" {
+		wantType := "text/javascript; charset=utf-8"
+		if strings.HasSuffix(target, ".css") {
+			wantType = "text/css; charset=utf-8"
+		}
+		if got := response.Header().Get("Content-Type"); got != wantType {
 			t.Errorf("GET %s Content-Type = %q", target, got)
 		}
 	}
-	response := request(t, app, "/")
-	csp := response.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+	entries, err := fs.ReadDir(assets, "dist")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundMermaidChunk := false
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "MermaidCanvas-") && strings.HasSuffix(entry.Name(), ".js") {
+			foundMermaidChunk = true
+			if response := request(t, app, "/assets/"+entry.Name()); response.Code != http.StatusOK {
+				t.Errorf("GET Mermaid chunk status = %d", response.Code)
+			}
+		}
+	}
+	if !foundMermaidChunk {
+		t.Fatal("Mermaid chunk not found")
+	}
+	csp := shell.Header().Get("Content-Security-Policy")
+	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}
@@ -223,12 +249,12 @@ func TestAppRescansOnEveryRequest(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "first.md"), "# First\n")
 	app := newTestApp(t, root)
 
-	first := request(t, app, "/")
+	first := request(t, app, "/api/page")
 	if strings.Contains(first.Body.String(), "second.md") {
 		t.Fatal("second.md appeared before it existed")
 	}
 	writeMarkdown(t, filepath.Join(root, "second.md"), "# Second\n")
-	second := request(t, app, "/")
+	second := request(t, app, "/api/page")
 	assertContains(t, second.Body.String(), "first.md", "second.md")
 }
 
@@ -245,11 +271,11 @@ func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
 	}, "\n\n"))
 	writeMarkdown(t, filepath.Join(root, "docs", "Other.markdown"), "# Other\n")
 
-	document := request(t, newTestApp(t, root), "/view?path=docs%2FGuide.MD")
+	document, data := requestPageData(t, newTestApp(t, root), "/api/page?path=docs%2FGuide.MD")
 	if document.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", document.Code, http.StatusOK)
 	}
-	body := document.Body.String()
+	body := data.Content
 	assertContains(t, body,
 		`href="/view?path=README.md#top"`,
 		`href="/view?path=docs%2FOther.markdown&amp;plain=1#details"`,
@@ -264,8 +290,10 @@ func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {
 	root := t.TempDir()
 	app := newTestApp(t, root)
 
-	empty := request(t, app, "/")
-	assertContains(t, empty.Body.String(), "No Markdown files found")
+	_, empty := requestPageData(t, app, "/api/page")
+	if !empty.Empty {
+		t.Fatal("empty root was not reported empty")
+	}
 
 	missing := request(t, app, "/view?path=missing.md")
 	if missing.Code != http.StatusNotFound {
@@ -321,6 +349,16 @@ func request(t *testing.T, handler http.Handler, target string) *httptest.Respon
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 	return response
+}
+
+func requestPageData(t *testing.T, handler http.Handler, target string) (*httptest.ResponseRecorder, pageData) {
+	t.Helper()
+	response := request(t, handler, target)
+	var data pageData
+	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
+	return response, data
 }
 
 func writeMarkdown(t *testing.T, name, content string) {

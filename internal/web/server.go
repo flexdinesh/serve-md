@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -25,16 +24,10 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-//go:embed page.html style.css mermaid.js search.js search-controller.js search-view.js search-worker.js vendor/minisearch.min.js vendor/MINISEARCH-LICENSE.txt
+//go:embed dist vendor/MINISEARCH-LICENSE.txt
 var assets embed.FS
 
-var browserAssets = map[string]string{
-	"/assets/mermaid.js":                    "mermaid.js",
-	"/assets/search.js":                     "search.js",
-	"/assets/search-controller.js":          "search-controller.js",
-	"/assets/search-view.js":                "search-view.js",
-	"/assets/search-worker.js":              "search-worker.js",
-	"/assets/vendor/minisearch.min.js":      "vendor/minisearch.min.js",
+var noticeAssets = map[string]string{
 	"/assets/vendor/MINISEARCH-LICENSE.txt": "vendor/MINISEARCH-LICENSE.txt",
 }
 
@@ -48,29 +41,29 @@ type Config struct {
 // App is an HTTP handler for the Markdown browser.
 type App struct {
 	config   Config
-	template *template.Template
 	markdown goldmark.Markdown
 	readFile func(string) ([]byte, error)
+	shell    string
 }
 
 type pageData struct {
-	RootName string
-	Tree     []treeNode
-	Selected string
-	Content  template.HTML
-	HasFile  bool
-	Empty    bool
-	Error    string
-	Warnings []string
+	RootName string     `json:"rootName"`
+	Tree     []treeNode `json:"tree"`
+	Selected string     `json:"selected"`
+	Content  string     `json:"content"`
+	HasFile  bool       `json:"hasFile"`
+	Empty    bool       `json:"empty"`
+	Error    string     `json:"error"`
+	Warnings []string   `json:"warnings"`
 }
 
 type treeNode struct {
-	Name     string
-	Path     string
-	IsDir    bool
-	Open     bool
-	Selected bool
-	Children []treeNode
+	Name     string     `json:"name"`
+	Path     string     `json:"path"`
+	IsDir    bool       `json:"isDir"`
+	Open     bool       `json:"open"`
+	Selected bool       `json:"selected"`
+	Children []treeNode `json:"children"`
 }
 
 type searchDocument struct {
@@ -90,15 +83,7 @@ type errorResponse struct {
 
 // New constructs a request-time scanning web interface.
 func New(config Config) (*App, error) {
-	page, err := fs.ReadFile(assets, "page.html")
-	if err != nil {
-		return nil, err
-	}
-	style, err := fs.ReadFile(assets, "style.css")
-	if err != nil {
-		return nil, err
-	}
-	tmpl, err := template.New("page.html").Parse(strings.Replace(string(page), "/* STYLE */", string(style), 1))
+	shell, err := fs.ReadFile(assets, "dist/index.html")
 	if err != nil {
 		return nil, err
 	}
@@ -107,12 +92,12 @@ func New(config Config) (*App, error) {
 		goldmark.WithExtensions(extension.GFM),
 		goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(&escapedHTMLRenderer{}, 500))),
 	)
-	return &App{config: config, template: tmpl, markdown: md, readFile: os.ReadFile}, nil
+	return &App{config: config, markdown: md, readFile: os.ReadFile, shell: string(shell)}, nil
 }
 
 // ServeHTTP rescans the configured directory before rendering every response.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: http: https:; style-src 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != http.MethodGet {
@@ -120,12 +105,25 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if asset, ok := browserAssets[r.URL.Path]; ok {
+	if asset, ok := noticeAssets[r.URL.Path]; ok {
 		a.serveAsset(w, asset)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/assets/") {
+		a.serveFrontendAsset(w, strings.TrimPrefix(r.URL.Path, "/assets/"))
 		return
 	}
 	if r.URL.Path == "/api/search-documents" {
 		a.serveSearchDocuments(w)
+		return
+	}
+	if r.URL.Path == "/api/page" {
+		selected, required := r.URL.Query()["path"]
+		pathValue := ""
+		if len(selected) > 0 {
+			pathValue = selected[0]
+		}
+		a.servePageData(w, pathValue, required)
 		return
 	}
 	if r.URL.Path != "/" && r.URL.Path != "/view" {
@@ -134,14 +132,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selected := ""
-	if r.URL.Path == "/view" {
+	required := r.URL.Path == "/view"
+	if required {
 		selected = r.URL.Query().Get("path")
-		if selected == "" {
-			a.renderError(w, http.StatusBadRequest, "No Markdown file was selected.", selected)
-			return
-		}
 	}
-	a.renderPage(w, selected)
+	data, status := a.page(selected, required)
+	a.serveShell(w, status, data)
 }
 
 func (a *App) serveAsset(w http.ResponseWriter, name string) {
@@ -150,13 +146,45 @@ func (a *App) serveAsset(w http.ResponseWriter, name string) {
 		http.NotFound(w, nil)
 		return
 	}
-	if strings.HasSuffix(name, ".js") {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(content)
+}
+
+func (a *App) serveFrontendAsset(w http.ResponseWriter, name string) {
+	if !fs.ValidPath(name) {
+		http.NotFound(w, nil)
+		return
+	}
+	content, err := fs.ReadFile(assets, "dist/"+name)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	switch path.Ext(name) {
+	case ".css":
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case ".js":
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-	} else {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	case ".woff2":
+		w.Header().Set("Content-Type", "font/woff2")
+	default:
+		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(content)
+}
+
+func (a *App) serveShell(w http.ResponseWriter, status int, data pageData) {
+	encoded, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "could not render page", http.StatusInternalServerError)
+		return
+	}
+	content := strings.Replace(a.shell, "{{APP_DATA}}", string(encoded), 1)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(content))
 }
 
 func (a *App) serveSearchDocuments(w http.ResponseWriter) {
@@ -238,11 +266,22 @@ func (a *App) searchText(source []byte) (string, error) {
 	return strings.Join(strings.Fields(strings.Join(parts, " ")), " "), nil
 }
 
-func (a *App) renderPage(w http.ResponseWriter, selected string) {
+func (a *App) servePageData(w http.ResponseWriter, selected string, required bool) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	data, status := a.page(selected, required)
+	writeJSON(w, status, data)
+}
+
+func (a *App) page(selected string, required bool) (pageData, int) {
 	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions)
 	if err != nil {
-		a.execute(w, http.StatusInternalServerError, pageData{RootName: filepath.Base(a.config.Root), Error: err.Error()})
-		return
+		return pageData{
+			RootName: filepath.Base(a.config.Root),
+			Tree:     []treeNode{},
+			Error:    err.Error(),
+			Warnings: []string{},
+		}, http.StatusInternalServerError
 	}
 	data := pageData{
 		RootName: filepath.Base(index.RootPath()),
@@ -251,6 +290,10 @@ func (a *App) renderPage(w http.ResponseWriter, selected string) {
 		Warnings: warningStrings(index.Warnings),
 	}
 	data.Tree = makeTree(index.Tree.Children, selected)
+	if required && selected == "" {
+		data.Error = "No Markdown file was selected."
+		return data, http.StatusBadRequest
+	}
 
 	if selected != "" {
 		resolved, err := index.Resolve(selected)
@@ -260,25 +303,22 @@ func (a *App) renderPage(w http.ResponseWriter, selected string) {
 				status = http.StatusBadRequest
 			}
 			data.Error = "That Markdown file is unavailable. Refresh the index and choose another file."
-			a.execute(w, status, data)
-			return
+			return data, status
 		}
 		source, err := a.readFile(resolved)
 		if err != nil {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
-			a.execute(w, http.StatusInternalServerError, data)
-			return
+			return data, http.StatusInternalServerError
 		}
 		var rendered bytes.Buffer
 		if err := a.renderMarkdown(source, selected, &rendered); err != nil {
 			data.Error = fmt.Sprintf("Could not render %s: %v", selected, err)
-			a.execute(w, http.StatusInternalServerError, data)
-			return
+			return data, http.StatusInternalServerError
 		}
-		data.Content = template.HTML(rendered.String()) // Goldmark escapes raw HTML via escapedHTMLRenderer.
+		data.Content = rendered.String() // Goldmark escapes raw HTML via escapedHTMLRenderer.
 		data.HasFile = true
 	}
-	a.execute(w, http.StatusOK, data)
+	return data, http.StatusOK
 }
 
 func (a *App) renderMarkdown(source []byte, selected string, output *bytes.Buffer) error {
@@ -321,29 +361,6 @@ func rewriteMarkdownLink(destination []byte, selected string) []byte {
 		RawQuery: query.Encode(),
 		Fragment: target.Fragment,
 	}).String())
-}
-
-func (a *App) renderError(w http.ResponseWriter, status int, message, selected string) {
-	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions)
-	data := pageData{RootName: filepath.Base(a.config.Root), Selected: selected, Error: message}
-	if err == nil {
-		data.RootName = filepath.Base(index.RootPath())
-		data.Tree = makeTree(index.Tree.Children, selected)
-		data.Empty = len(index.Files) == 0
-		data.Warnings = warningStrings(index.Warnings)
-	}
-	a.execute(w, status, data)
-}
-
-func (a *App) execute(w http.ResponseWriter, status int, data pageData) {
-	var output bytes.Buffer
-	if err := a.template.Execute(&output, data); err != nil {
-		http.Error(w, "could not render page", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write(output.Bytes())
 }
 
 func makeTree(entries []files.Entry, selected string) []treeNode {
