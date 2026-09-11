@@ -2,11 +2,15 @@
   "name": "serve-md-web",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.24.0",
   "scripts": {
-    "build:web": "vite build",
-    "dev:web": "vite",
-    "test:web": "node --test internal/web/*.test.mjs internal/web/frontend/src/*.test.mjs"
+    "build:web": "vite build --configLoader native",
+    "dev:go": "go run . testdata/markdown --port 8080 --no-open",
+    "dev:vite": "vite --configLoader native",
+    "dev": "concurrently --kill-others \"pnpm dev:go\" \"pnpm dev:vite\"",
+    "link:local": "pnpm build:web && go install .",
+    "test:browser": "playwright test",
+    "test:web": "node --test internal/web/*.test.ts internal/web/frontend/src/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tldraw/mermaid": "5.4.0",
@@ -16,7 +20,17 @@
     "tldraw": "5.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.19.21",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
+    "concurrently": "10.0.5",
+    "typescript": "7.0.2",
     "vite": "8.2.2"
-  }
+  },
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "packageManager": "pnpm@11.24.0"
 }

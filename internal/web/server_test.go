@@ -13,6 +13,72 @@ import (
 	"testing"
 )
 
+func TestAppServesSharedMarkdownFixtures(t *testing.T) {
+	root := filepath.Join("..", "..", "testdata", "markdown")
+	app := newTestApp(t, root)
+
+	landing, landingData := requestPageData(t, app, "/api/page")
+	if landing.Code != http.StatusOK {
+		t.Fatalf("landing status = %d, want %d", landing.Code, http.StatusOK)
+	}
+	if got, want := landingData.RootName, "markdown"; got != want {
+		t.Fatalf("root name = %q, want %q", got, want)
+	}
+	assertContains(t, landing.Body.String(), "README.md", "getting-started.md", "api.markdown", "search.md")
+	for _, excluded := range []string{"notes.txt", "vendor", "ignored.md"} {
+		if strings.Contains(landing.Body.String(), excluded) {
+			t.Errorf("landing includes excluded fixture %q", excluded)
+		}
+	}
+
+	guide, guideData := requestPageData(t, app, "/api/page?path=guides%2Fgetting-started.md")
+	if guide.Code != http.StatusOK {
+		t.Fatalf("guide status = %d, want %d", guide.Code, http.StatusOK)
+	}
+	assertContains(t, guideData.Content,
+		"<h1>Getting started</h1>",
+		"<table>",
+		`<pre><code class="language-sh">serve-md testdata/markdown`,
+		`href="/view?path=reference%2Ftopics%2Fsearch.md"`,
+	)
+
+	diagrams, diagramsData := requestPageData(t, app, "/api/page?path=guides%2Fdiagrams.md")
+	if diagrams.Code != http.StatusOK {
+		t.Fatalf("diagrams status = %d, want %d", diagrams.Code, http.StatusOK)
+	}
+	assertContains(t, diagramsData.Content,
+		`<pre><code class="language-mermaid">flowchart LR`,
+		`GoAPI[&quot;Go API &amp; renderer&quot;]`,
+		`<pre><code class="language-mermaid">sequenceDiagram`,
+		`User-&gt;&gt;App: Open nested document`,
+	)
+	if strings.Contains(diagramsData.Content, `GoAPI["Go API & renderer"]`) {
+		t.Fatal("Mermaid source was not HTML-escaped")
+	}
+
+	search := request(t, app, "/api/search-documents")
+	if search.Code != http.StatusOK {
+		t.Fatalf("search status = %d, want %d", search.Code, http.StatusOK)
+	}
+	var searchData searchDocumentsResponse
+	if err := json.Unmarshal(search.Body.Bytes(), &searchData); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(searchData.Documents), 5; got != want {
+		t.Fatalf("search documents = %d, want %d", got, want)
+	}
+	foundSearchFixture := false
+	for _, document := range searchData.Documents {
+		if document.Path == "reference/topics/search.md" {
+			foundSearchFixture = true
+			assertContains(t, document.Content, "luminous-orchid")
+		}
+	}
+	if !foundSearchFixture {
+		t.Fatal("nested search fixture missing from search documents")
+	}
+}
+
 func TestAppListsAndRendersMarkdown(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "docs", "Guide.MD"), "# Guide\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n<script>alert('no')</script>\n")

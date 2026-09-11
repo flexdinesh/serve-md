@@ -3,6 +3,8 @@
 /serve-md.exe
 /bin/
 /node_modules/
+/playwright-report/
+/test-results/
 
 # Go test and coverage output
 /*.test

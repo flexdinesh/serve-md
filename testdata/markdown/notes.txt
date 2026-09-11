@@ -1,0 +1,2 @@
+This non-Markdown file must not appear in the index.
+
