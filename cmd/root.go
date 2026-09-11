@@ -86,7 +86,7 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
-	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(opts.port)))
+	listener, err := listenTCP4(opts.port)
 	if err != nil {
 		return fmt.Errorf("listen on local port %d: %w", opts.port, err)
 	}
@@ -102,11 +102,21 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 		serveErrors <- server.Serve(listener)
 	}()
 
-	url := "http://" + listener.Addr().String() + "/"
-	_, _ = fmt.Fprintf(stdout, "Serving Markdown from %s\n%s\n", root, url)
-	if !opts.noOpen {
+	port, err := listenerPort(listener.Addr())
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	localURL := serverURL("localhost", port)
+	_, _ = fmt.Fprintf(stdout, "Serving Markdown from %s\n", root)
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		addresses = nil
+	}
+	writeServerURLs(stdout, port, addresses)
+	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
 		go func() {
-			if err := browser.Open(url); err != nil {
+			if err := browser.Open(localURL); err != nil {
 				_, _ = fmt.Fprintf(stderr, "Could not open browser: %v\n", err)
 			}
 		}()
@@ -126,4 +136,60 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 		}
 		return nil
 	}
+}
+
+func listenTCP4(port int) (net.Listener, error) {
+	return net.Listen("tcp4", net.JoinHostPort("0.0.0.0", strconv.Itoa(port)))
+}
+
+func listenerPort(address net.Addr) (int, error) {
+	_, rawPort, err := net.SplitHostPort(address.String())
+	if err != nil {
+		return 0, fmt.Errorf("read local server address %q: %w", address.String(), err)
+	}
+	port, err := strconv.Atoi(rawPort)
+	if err != nil {
+		return 0, fmt.Errorf("read local server port %q: %w", rawPort, err)
+	}
+	return port, nil
+}
+
+func serverURL(host string, port int) string {
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/"
+}
+
+func writeServerURLs(output io.Writer, port int, addresses []net.Addr) {
+	_, _ = fmt.Fprintf(output, "Local: %s\nHost: %s\n", serverURL("localhost", port), serverURL("0.0.0.0", port))
+	if address := primaryIPv4(addresses); address != nil {
+		_, _ = fmt.Fprintf(output, "Network: %s\n", serverURL(address.String(), port))
+	}
+}
+
+func primaryIPv4(addresses []net.Addr) net.IP {
+	for _, address := range addresses {
+		var ip net.IP
+		switch value := address.(type) {
+		case *net.IPAddr:
+			ip = value.IP
+		case *net.IPNet:
+			ip = value.IP
+		}
+		ipv4 := ip.To4()
+		if ipv4 != nil && !ipv4.IsLoopback() && !ipv4.IsUnspecified() {
+			return append(net.IP(nil), ipv4...)
+		}
+	}
+	return nil
+}
+
+func shouldOpenBrowser(noOpen bool, getenv func(string) string) bool {
+	if noOpen {
+		return false
+	}
+	for _, name := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
+		if getenv(name) != "" {
+			return false
+		}
+	}
+	return true
 }

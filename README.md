@@ -36,21 +36,26 @@ Diagram code bundles React 19.2.1, tldraw 5.4.0, `@tldraw/mermaid` 5.4.0, and it
 
 ## Development
 
-Frontend development requires Node.js 20.19 or later and pnpm 11.
+Frontend development requires Node.js 26 and pnpm 11. Node-run code uses native TypeScript; React uses Vite TypeScript. Only generated browser bundles in `internal/web/dist` remain JavaScript.
 
 Install dependencies:
 
 ```sh
 go mod download
 pnpm install
+pnpm exec playwright install --with-deps chromium
 ```
 
-Run the Go and browser tests:
+Run the Go, frontend unit, and browser tests:
 
 ```sh
 go test ./...
 pnpm test:web
+pnpm test:browser
+pnpm typecheck
 ```
+
+Committed Markdown fixtures in `testdata/markdown` are shared by Go and browser tests. They are also the default development content, including nested documents, search content, GFM, links, and Mermaid diagrams.
 
 The browser UI is a React app built with Vite. Generated files in `internal/web/dist` are committed and embedded in the Go binary. Regenerate them after frontend changes:
 
@@ -58,12 +63,24 @@ The browser UI is a React app built with Vite. Generated files in `internal/web/
 pnpm build:web
 ```
 
-For frontend development, run the Go API and Vite dev server separately:
+Run the Go API and Vite dev server together against the fixture content:
 
 ```sh
-go run . . --port 8080 --no-open
-pnpm dev:web
+pnpm dev
 ```
+
+Both development servers listen on all IPv4 interfaces. Their startup output lists localhost, `0.0.0.0`, and one available LAN IPv4 URL with the selected ports. This exposes the unauthenticated development servers and served Markdown to attached networks.
+
+Outside SSH sessions, Vite and the Go CLI open their localhost URLs in the default browser. The `dev:go` script passes `--no-open`, so `dev` opens only Vite. Set `--no-open` when running the Go command directly to disable its browser launch.
+
+To run either server independently, use separate terminals:
+
+```sh
+pnpm dev:go
+pnpm dev:vite
+```
+
+`dev:vite` expects `dev:go` to be running and proxies API requests to it.
 
 Build and run locally:
 
@@ -72,10 +89,10 @@ go build -o ./bin/serve-md .
 ./bin/serve-md .
 ```
 
-Install the local binary to your Go binary directory:
+Build the browser UI and install the local CLI to your Go binary directory:
 
 ```sh
-go install .
+pnpm link:local
 ```
 
 ## License

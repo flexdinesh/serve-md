@@ -9,6 +9,37 @@ import (
 	"testing"
 )
 
+func TestScanSharedMarkdownFixtures(t *testing.T) {
+	root := filepath.Join("..", "..", "testdata", "markdown")
+	index, err := Scan(root, -1, []string{"vendor"})
+	if err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+
+	wantFiles := []string{
+		"guides/diagrams.md",
+		"guides/getting-started.md",
+		"reference/topics/search.md",
+		"reference/api.markdown",
+		"README.md",
+	}
+	if !reflect.DeepEqual(index.Files, wantFiles) {
+		t.Fatalf("Files = %v, want %v", index.Files, wantFiles)
+	}
+	if got, want := childNames(index.Tree), []string{"guides", "reference", "README.md"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("root children = %v, want %v", got, want)
+	}
+	if got, want := childNames(index.Tree.Children[1]), []string{"topics", "api.markdown"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("reference children = %v, want %v", got, want)
+	}
+	if got, want := childNames(index.Tree.Children[1].Children[0]), []string{"search.md"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("topics children = %v, want %v", got, want)
+	}
+	if len(index.Warnings) != 0 {
+		t.Fatalf("Warnings = %v, want none", index.Warnings)
+	}
+}
+
 func TestScanBuildsOrderedDepthLimitedTree(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "b.MARKDOWN"))
