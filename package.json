@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build:web": "vite build --configLoader native",
-    "dev:server": "go run . testdata/markdown --port 8080 --no-open",
+    "clean": "node -e \"require('node:fs').rmSync('internal/web/dist', { recursive: true, force: true })\"",
+    "dev:server": "pnpm clean && pnpm build:web && go run . testdata/markdown --port 8080 --no-open",
     "dev:web": "vite --configLoader native",
     "dev": "concurrently --kill-others \"pnpm dev:server\" \"pnpm dev:web\"",
     "link:local": "pnpm build:web && go install .",

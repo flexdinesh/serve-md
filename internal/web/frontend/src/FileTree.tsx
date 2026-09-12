@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { FolderIcon, SquareMIcon } from "lucide-react"
 
 import type { PageData, TreeNode } from "./page-data.ts"
 
@@ -16,7 +17,10 @@ function TreeNodes({ expandedPaths, nodes, onExpandedChange }: TreeNodesProps) {
           open={expandedPaths.has(node.path)}
           onToggle={(event) => onExpandedChange(node.path, event.currentTarget.open)}
         >
-          <summary>{node.name}/</summary>
+          <summary>
+            <FolderIcon aria-hidden="true" />
+            {node.name}/
+          </summary>
           <ul>
             <TreeNodes
               expandedPaths={expandedPaths}
@@ -33,6 +37,7 @@ function TreeNodes({ expandedPaths, nodes, onExpandedChange }: TreeNodesProps) {
           search={{ path: node.path }}
           hash=""
         >
+          <SquareMIcon aria-hidden="true" />
           {node.name}
         </Link>
       )}

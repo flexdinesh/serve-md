@@ -379,6 +379,7 @@ aside {
   display: flex;
   min-height: var(--control-height-sm);
   align-items: center;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
@@ -390,8 +391,18 @@ aside {
 }
 
 .tree summary {
-  gap: var(--space-1);
   list-style: none;
+}
+
+.tree a {
+  padding-left: calc(var(--space-2) + 0.875rem + var(--space-1));
+}
+
+.tree summary svg,
+.tree a svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
 }
 
 .tree summary::-webkit-details-marker {
