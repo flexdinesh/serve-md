@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Tldraw, type Editor } from "tldraw"
 import "tldraw/tldraw.css"
 
+import { Button } from "@/components/ui/button"
+
 import { minimumDiagramHeight } from "./diagram.ts"
 import { createMermaidController, type MermaidControllerEditor } from "./mermaid-controller.ts"
 import { MermaidSource } from "./MermaidSource.tsx"
@@ -91,9 +93,9 @@ export default function MermaidCanvas({ source }: { source: string }) {
       </div>
       {ready && (
         <div className="mermaid-controls" role="group" aria-label="Diagram zoom controls">
-          <button type="button" aria-label="Zoom out" onClick={() => controllerRef.current?.zoomOut()}>−</button>
-          <button type="button" aria-label="Fit diagram" onClick={() => controllerRef.current?.fit()}>Fit</button>
-          <button type="button" aria-label="Zoom in" onClick={() => controllerRef.current?.zoomIn()}>+</button>
+          <Button variant="ghost" size="sm" type="button" aria-label="Zoom out" onClick={() => controllerRef.current?.zoomOut()}>−</Button>
+          <Button variant="ghost" size="sm" type="button" aria-label="Fit diagram" onClick={() => controllerRef.current?.fit()}>Fit</Button>
+          <Button variant="ghost" size="sm" type="button" aria-label="Zoom in" onClick={() => controllerRef.current?.zoomIn()}>+</Button>
         </div>
       )}
     </div>

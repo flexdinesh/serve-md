@@ -31,6 +31,13 @@ test("searches fixture content and opens the result", async ({ page }) => {
   await expect(page.locator("main")).toContainText("luminous-orchid")
 })
 
+test("opens search from the header control", async ({ page }) => {
+  await page.goto("/")
+
+  await page.getByRole("button", { name: /Search/ }).click()
+  await expect(page.getByPlaceholder("Search files and content…")).toBeFocused()
+})
+
 test("mounts each Mermaid block in a lazy host", async ({ page }) => {
   await page.goto("/view?path=guides%2Fdiagrams.md")
 

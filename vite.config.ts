@@ -2,6 +2,7 @@ import { networkInterfaces } from "node:os"
 import { fileURLToPath, URL } from "node:url"
 
 import react from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
 import { defineConfig, type Plugin } from "vite"
 
 import {
@@ -36,7 +37,12 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     outDir: "../dist",
   },
-  plugins: [react(), devServerBanner],
+  plugins: [react(), tailwindcss(), devServerBanner],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./internal/web/frontend/src", import.meta.url)),
+    },
+  },
   root: fileURLToPath(new URL("./internal/web/frontend", import.meta.url)),
   server: {
     host: "0.0.0.0",

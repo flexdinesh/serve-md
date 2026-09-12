@@ -85,7 +85,12 @@ async function fetchDocuments(): Promise<SearchDocumentsResponse> {
   return payload
 }
 
-export function SearchDialog({ navigate }: { navigate(path: string): void }) {
+interface SearchDialogProps {
+  navigate(path: string): void
+  registerOpen(open: (() => void) | null): void
+}
+
+export function SearchDialog({ navigate, registerOpen }: SearchDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const handlers = useRef<SearchHandlers | null>(null)
@@ -138,8 +143,12 @@ export function SearchDialog({ navigate }: { navigate(path: string): void }) {
       worker,
     })
     controller.start()
-    return () => controller.destroy()
-  }, [navigate])
+    registerOpen(controller.open)
+    return () => {
+      registerOpen(null)
+      controller.destroy()
+    }
+  }, [navigate, registerOpen])
 
   const activeID = activeIndex >= 0 ? `search-option-${activeIndex}` : undefined
 
@@ -153,34 +162,41 @@ export function SearchDialog({ navigate }: { navigate(path: string): void }) {
     >
       <div className="search-shell">
         <h2 id="search-title" className="visually-hidden">Search Markdown files</h2>
-        <input
-          ref={input}
-          id="search-input"
-          className="search-input"
-          type="search"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Search files and content…"
-          role="combobox"
-          aria-controls="search-results"
-          aria-expanded={expanded}
-          aria-autocomplete="list"
-          aria-activedescendant={activeID}
-          value={query}
-          onChange={(event) => { setQuery(event.target.value); handlers.current?.onInput(event.target.value) }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              event.preventDefault()
-              handlers.current?.onMove(event.key === "ArrowDown" ? 1 : -1)
-            } else if (event.key === "Enter") {
-              event.preventDefault()
-              handlers.current?.onActivate()
-            } else if (event.key === "Escape") {
-              event.preventDefault()
-              handlers.current?.onClose()
-            }
-          }}
-        />
+        <div className="search-field">
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <circle cx="8.5" cy="8.5" r="5.5" />
+            <path d="m12.5 12.5 4 4" />
+          </svg>
+          <input
+            ref={input}
+            id="search-input"
+            className="search-input"
+            type="search"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Search files and content…"
+            role="combobox"
+            aria-controls="search-results"
+            aria-expanded={expanded}
+            aria-autocomplete="list"
+            aria-activedescendant={activeID}
+            value={query}
+            onChange={(event) => { setQuery(event.target.value); handlers.current?.onInput(event.target.value) }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault()
+                handlers.current?.onMove(event.key === "ArrowDown" ? 1 : -1)
+              } else if (event.key === "Enter") {
+                event.preventDefault()
+                handlers.current?.onActivate()
+              } else if (event.key === "Escape") {
+                event.preventDefault()
+                handlers.current?.onClose()
+              }
+            }}
+          />
+          <kbd>Esc</kbd>
+        </div>
         <div className={`search-status search-status-${status.kind}${status.kind === "warning" ? " search-warning" : ""}`} role="status" aria-live="polite" title={status.detail}>
           {status.message}
         </div>

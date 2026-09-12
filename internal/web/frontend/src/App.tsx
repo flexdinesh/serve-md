@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+
+import { Button } from "@/components/ui/button"
 
 import { MarkdownDocument } from "./MarkdownDocument.tsx"
 import { SearchDialog } from "./SearchDialog.tsx"
@@ -102,7 +104,12 @@ const emptyPage: PageData = {
 }
 
 export function App() {
+  const openSearch = useRef<() => void>(() => {})
   const [data, setData] = useState<PageData | null>(initialPageData)
+
+  const registerSearch = useCallback((open: (() => void) | null) => {
+    openSearch.current = open ?? (() => {})
+  }, [])
 
   useEffect(() => {
     if (data) return undefined
@@ -129,10 +136,32 @@ export function App() {
 
   return (
     <>
-      <header><a href="/">serve-md</a><span>{page.rootName}</span></header>
+      <header className="app-header">
+        <div className="app-identity">
+          <a className="brand" href="/" aria-label="serve-md home">
+            <span className="brand-mark" aria-hidden="true">M</span>
+            <span>serve-md</span>
+          </a>
+          {page.rootName && <span className="root-name" title={page.rootName}>{page.rootName}</span>}
+        </div>
+        <Button
+          className="search-trigger"
+          type="button"
+          variant="outline"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={() => openSearch.current()}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <circle cx="8.5" cy="8.5" r="5.5" />
+            <path d="m12.5 12.5 4 4" />
+          </svg>
+          <span>Search</span>
+          <kbd>⌘ K</kbd>
+        </Button>
+      </header>
       <div className="layout">
         <aside aria-label="Markdown files">
-          <div className="tree-title">Markdown files</div>
+          <div className="tree-title">Files</div>
           {!data ? <p className="muted">Loading Markdown files…</p> : page.empty ? <p className="muted">No Markdown files found.</p> : <ul className="tree"><TreeNodes nodes={page.tree} /></ul>}
           {page.warnings.length > 0 && (
             <details className="warnings">
@@ -143,10 +172,16 @@ export function App() {
         </aside>
         <main>
           {page.error && <div className="error" role="alert">{page.error}</div>}
-          {page.hasFile ? <MarkdownDocument key={page.selected} html={page.content} /> : data && !page.error ? <div className="empty">Select a Markdown file from the folder tree.</div> : null}
+          {page.hasFile ? <MarkdownDocument key={page.selected} html={page.content} /> : data && !page.error ? (
+            <div className="empty">
+              <div className="empty-mark" aria-hidden="true">M</div>
+              <h1>Choose a Markdown file</h1>
+              <p>Select a Markdown file from the folder tree.</p>
+            </div>
+          ) : null}
         </main>
       </div>
-      <SearchDialog navigate={navigateToDocument} />
+      <SearchDialog navigate={navigateToDocument} registerOpen={registerSearch} />
     </>
   )
 }
