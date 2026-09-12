@@ -6,32 +6,14 @@ import { createMermaidController, type MermaidControllerEditor } from "./mermaid
 type Call = [string, ...unknown[]]
 
 interface RenderContext {
+  fallback(): Promise<void>
   shapes: Set<string>
 }
 
 interface SetupOptions {
   fallback?: boolean
   render?(context: RenderContext): Promise<void>
-}
-
-class Media {
-  matches = false
-  listeners: Array<() => void> = []
-
-  addEventListener(type: "change", listener: () => void): void {
-    assert.equal(type, "change")
-    this.listeners.push(listener)
-  }
-
-  removeEventListener(type: "change", listener: () => void): void {
-    assert.equal(type, "change")
-    this.listeners = this.listeners.filter((item) => item !== listener)
-  }
-
-  change(matches: boolean): void {
-    this.matches = matches
-    for (const listener of this.listeners) listener()
-  }
+  theme?: "light" | "dark"
 }
 
 const flushPromises = async (): Promise<void> => {
@@ -40,7 +22,7 @@ const flushPromises = async (): Promise<void> => {
   await Promise.resolve()
 }
 
-function setup({ fallback = false, render }: SetupOptions = {}) {
+function setup({ fallback = false, render, theme = "light" }: SetupOptions = {}) {
   const calls: Call[] = []
   const configs: Array<{ config: { theme: "dark" | "default" }; source: string }> = []
   const errors: unknown[] = []
@@ -58,12 +40,14 @@ function setup({ fallback = false, render }: SetupOptions = {}) {
     zoomOut: () => { calls.push(["zoom", "out"]) },
     zoomToBounds: (bounds, options) => { calls.push(["fit", bounds, options]) },
   }
-  const media = new Media()
   let resize: (() => void) | undefined
   const controller = createMermaidController({
     async createDiagram(source, options) {
       configs.push({ config: options.mermaidConfig, source })
-      if (render) await render({ shapes })
+      if (render) await render({
+        fallback: () => options.onUnsupportedDiagram("<svg>fallback</svg>"),
+        shapes,
+      })
       else if (fallback) await options.onUnsupportedDiagram("<svg>fallback</svg>")
       else shapes.add("native")
     },
@@ -76,12 +60,12 @@ function setup({ fallback = false, render }: SetupOptions = {}) {
     },
     editor,
     host: { getBoundingClientRect: () => ({ width: 800 }) },
-    media,
     onError: (error) => { errors.push(error) },
     onHeight: (height) => { heights.push(height) },
     onReady: () => { calls.push(["ready"]) },
     schedule: (callback) => { callback() },
     source: "graph LR\nA --> B",
+    theme,
   })
   return {
     calls,
@@ -89,7 +73,6 @@ function setup({ fallback = false, render }: SetupOptions = {}) {
     controller,
     errors,
     heights,
-    media,
     resize() {
       assert.ok(resize)
       resize()
@@ -125,35 +108,46 @@ test("native diagrams use strict config, become read-only, and fit responsively"
   assert.equal(harness.calls.filter(([type]) => type === "disconnect").length, 1)
 })
 
-test("only SVG fallbacks regenerate for system theme changes", async () => {
+test("explicit dark theme configures Mermaid", async () => {
+  const harness = setup({ theme: "dark" })
+  await harness.controller.start()
+  assert.deepEqual(harness.configs.map(({ config }) => config), [{
+    securityLevel: "strict",
+    suppressErrorRendering: true,
+    theme: "dark",
+    themeVariables: { darkMode: true },
+  }])
+})
+
+test("only SVG fallbacks regenerate for resolved theme changes", async () => {
   const native = setup()
   await native.controller.start()
-  native.media.change(true)
+  native.controller.setTheme("dark")
   await flushPromises()
   assert.equal(native.configs.length, 1)
 
   const fallback = setup({ fallback: true })
   await fallback.controller.start()
-  fallback.media.change(true)
+  fallback.controller.setTheme("dark")
   await flushPromises()
   assert.deepEqual(fallback.configs.map(({ config }) => config.theme), ["default", "dark"])
   assert.equal(fallback.calls.filter(([type]) => type === "external").length, 2)
   assert.equal(fallback.calls.filter(([type]) => type === "delete").length, 1)
 })
 
-test("theme changes during rendering serialize the latest theme", async () => {
+test("fallback theme changes during rendering serialize the latest theme", async () => {
   let finishFirst: (() => void) | undefined
   let count = 0
   const harness = setup({
-    render: async ({ shapes }) => {
+    render: async ({ fallback }) => {
       count += 1
       if (count === 1) await new Promise<void>((resolve) => { finishFirst = resolve })
-      shapes.add(`shape-${count}`)
+      await fallback()
     },
   })
   const starting = harness.controller.start()
   await flushPromises()
-  harness.media.change(true)
+  harness.controller.setTheme("dark")
   assert.equal(count, 1)
   assert.ok(finishFirst)
   finishFirst()
@@ -168,5 +162,4 @@ test("render failures are reported and never mark the diagram ready", async () =
   await harness.controller.start()
   assert.deepEqual(harness.errors, [failure])
   assert.equal(harness.calls.some(([type]) => type === "ready"), false)
-  assert.equal(harness.media.listeners.length, 0)
 })

@@ -26,9 +26,9 @@
 
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
+  --text-sm: 0.875rem;
   --text-sm--line-height: 1.25rem;
-  --text-base: 0.9375rem;
+  --text-base: 1rem;
   --text-base--line-height: 1.5rem;
   --text-lg: 1.125rem;
   --text-lg--line-height: 1.625rem;
@@ -63,8 +63,57 @@
   --control-height-md: 2.5rem;
 }
 
+:root.light {
+  color-scheme: light;
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f0f2f5;
+  --color-surface-raised: #ffffff;
+  --color-text-primary: #20242c;
+  --color-text-secondary: #515866;
+  --color-text-muted: #6d7685;
+  --color-border: #dfe3e8;
+  --color-border-strong: #c5cbd4;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-subtle: #e8efff;
+  --color-on-accent: #ffffff;
+  --color-success: #16794b;
+  --color-warning: #9a5800;
+  --color-warning-subtle: #fff1cf;
+  --color-destructive: #bd3029;
+  --color-destructive-subtle: #fff0ef;
+  --color-overlay: rgb(15 18 23 / 48%);
+  --shadow-control: 0 1px 2px rgb(15 18 23 / 8%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(15 18 23 / 22%);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --color-bg: #101217;
+  --color-surface: #171a20;
+  --color-surface-secondary: #1e222a;
+  --color-surface-raised: #232832;
+  --color-text-primary: #e8eaf0;
+  --color-text-secondary: #b2b8c4;
+  --color-text-muted: #8992a1;
+  --color-border: #2c313b;
+  --color-border-strong: #414855;
+  --color-accent: #78a8ff;
+  --color-accent-hover: #9bbfff;
+  --color-accent-subtle: #1d3155;
+  --color-success: #62d09b;
+  --color-warning: #efb15a;
+  --color-warning-subtle: #3c2d18;
+  --color-destructive: #ff827a;
+  --color-destructive-subtle: #422523;
+  --color-overlay: rgb(0 0 0 / 62%);
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 24%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 42%);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light, .dark) {
     --color-bg: #101217;
     --color-surface: #171a20;
     --color-surface-secondary: #1e222a;
@@ -172,6 +221,13 @@ a {
   gap: var(--space-3);
 }
 
+.header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .brand {
   display: inline-flex;
   flex: none;
@@ -242,6 +298,11 @@ a {
 .search-trigger:active {
   background: var(--color-surface-secondary);
   box-shadow: none;
+}
+
+.theme-trigger {
+  position: relative;
+  flex: none;
 }
 
 .search-trigger svg,
@@ -360,6 +421,8 @@ aside {
 }
 
 .tree a.selected {
+  width: 100%;
+  border-radius: 0;
   color: var(--color-accent);
   background: var(--color-accent-subtle);
   box-shadow: inset 2px 0 var(--color-accent);

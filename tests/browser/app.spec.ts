@@ -185,6 +185,51 @@ test("opens search from the header control", async ({ page }) => {
   await expect(page.getByPlaceholder("Search files and content…")).toBeFocused()
 })
 
+test("selects and persists an explicit theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.goto("/")
+
+  const theme = page.getByRole("button", { name: "Theme: System" })
+  await theme.press("Enter")
+  const dark = page.getByRole("menuitemradio", { name: "Dark" })
+  await expect(dark).toBeVisible()
+  await dark.click()
+
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(16, 18, 23)")
+  expect(await page.evaluate(() => localStorage.getItem("serve-md-theme"))).toBe("dark")
+
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Theme: Dark" })).toBeVisible()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+
+  await page.getByRole("button", { name: "Theme: Dark" }).click()
+  await page.getByRole("menuitemradio", { name: "Light" }).click()
+  await expect(page.locator("html")).toHaveClass(/light/)
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(247, 248, 250)")
+})
+
+test("system theme follows live OS changes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.goto("/")
+
+  await expect(page.getByRole("button", { name: "Theme: System" })).toBeVisible()
+  await expect(page.locator("html")).toHaveClass(/light/)
+  await page.emulateMedia({ colorScheme: "dark" })
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(page.getByRole("button", { name: "Theme: System" })).toBeVisible()
+})
+
+test("uses readable body and navigation text sizes", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const selected = tree.getByRole("link", { name: "getting-started.md" })
+  await expect(page.locator("article")).toHaveCSS("font-size", "16px")
+  await expect(selected).toHaveCSS("font-size", "14px")
+  await expect(selected).toHaveCSS("border-radius", "0px")
+})
+
 test("mounts each Mermaid block in a lazy host", async ({ page }) => {
   await page.goto("/view?path=guides%2Fdiagrams.md")
 

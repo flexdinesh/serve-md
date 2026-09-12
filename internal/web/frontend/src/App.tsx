@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
+import { ModeToggle } from "./components/ModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
 import { FileTree } from "./FileTree.tsx"
 import {
@@ -114,20 +115,23 @@ export function App() {
           </Link>
           {page.rootName && <span className="root-name" title={page.rootName}>{page.rootName}</span>}
         </div>
-        <Button
-          className="search-trigger"
-          type="button"
-          variant="outline"
-          aria-keyshortcuts="Control+K Meta+K"
-          onClick={() => openSearch.current()}
-        >
-          <svg aria-hidden="true" viewBox="0 0 20 20">
-            <circle cx="8.5" cy="8.5" r="5.5" />
-            <path d="m12.5 12.5 4 4" />
-          </svg>
-          <span>Search</span>
-          <kbd>⌘ K</kbd>
-        </Button>
+        <div className="header-actions">
+          <Button
+            className="search-trigger"
+            type="button"
+            variant="outline"
+            aria-keyshortcuts="Control+K Meta+K"
+            onClick={() => openSearch.current()}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <path d="m12.5 12.5 4 4" />
+            </svg>
+            <span>Search</span>
+            <kbd>⌘ K</kbd>
+          </Button>
+          <ModeToggle />
+        </div>
       </header>
       <div className="layout">
         <FileTree

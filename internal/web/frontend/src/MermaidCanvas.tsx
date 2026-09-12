@@ -6,7 +6,11 @@ import "tldraw/tldraw.css"
 import { Button } from "@/components/ui/button"
 
 import { minimumDiagramHeight } from "./diagram.ts"
-import { createMermaidController, type MermaidControllerEditor } from "./mermaid-controller.ts"
+import {
+  createMermaidController,
+  type MermaidControllerEditor,
+  type MermaidTheme,
+} from "./mermaid-controller.ts"
 import { MermaidSource } from "./MermaidSource.tsx"
 
 const renderError = "Could not render Mermaid diagram. Check its source."
@@ -41,36 +45,34 @@ function controllerEditor(editor: Editor): MermaidControllerEditor {
   }
 }
 
-export default function MermaidCanvas({ source }: { source: string }) {
+export default function MermaidCanvas({ source, theme }: { source: string; theme: MermaidTheme }) {
   const host = useRef<HTMLDivElement>(null)
   const cleanup = useRef<() => void>(() => {})
   const [error, setError] = useState("")
   const [height, setHeight] = useState(minimumDiagramHeight)
   const [ready, setReady] = useState(false)
   const controllerRef = useRef<ReturnType<typeof createMermaidController> | null>(null)
+  const themeRef = useRef(theme)
+  themeRef.current = theme
 
   useEffect(() => () => cleanup.current(), [])
+  useEffect(() => { controllerRef.current?.setTheme(theme) }, [theme])
 
   const onMount = useCallback((editor: Editor) => {
     cleanup.current()
     if (!host.current) return
     const hostElement = host.current
-    const media = window.matchMedia("(prefers-color-scheme: dark)")
     const controller = createMermaidController({
       createDiagram: (text, options) => createMermaidDiagram(editor, text, options),
       createResizeObserver: (callback) => createDiagramResizeObserver(callback, hostElement),
       editor: controllerEditor(editor),
       host: hostElement,
-      media: {
-        get matches() { return media.matches },
-        addEventListener: (_type, listener) => media.addEventListener("change", listener),
-        removeEventListener: (_type, listener) => media.removeEventListener("change", listener),
-      },
       onError: () => setError(renderError),
       onHeight: setHeight,
       onReady: () => setReady(true),
       schedule: (callback) => { requestAnimationFrame(callback) },
       source,
+      theme: themeRef.current,
     })
     controllerRef.current = controller
     cleanup.current = controller.dispose
@@ -85,7 +87,7 @@ export default function MermaidCanvas({ source }: { source: string }) {
       <div className="mermaid-canvas" aria-label="Mermaid diagram">
         <Tldraw
           autoFocus={false}
-          colorScheme="system"
+          colorScheme={theme}
           hideUi
           onMount={onMount}
           options={{ edgeScrollSpeed: 0, maxPages: 0 }}

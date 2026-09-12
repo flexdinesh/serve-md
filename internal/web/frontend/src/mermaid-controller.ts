@@ -33,23 +33,19 @@ interface ResizeObserverLike {
   observe(): void
 }
 
-interface ThemeMedia {
-  matches: boolean
-  addEventListener(type: "change", listener: () => void): void
-  removeEventListener(type: "change", listener: () => void): void
-}
+export type MermaidTheme = "light" | "dark"
 
 interface MermaidControllerOptions {
   createDiagram(source: string, options: MermaidDiagramOptions): Promise<void>
   createResizeObserver(callback: () => void): ResizeObserverLike
   editor: MermaidControllerEditor
   host: { getBoundingClientRect(): { width: number } }
-  media: ThemeMedia
   onError(error: unknown): void
   onHeight(height: number): void
   onReady(): void
   schedule(callback: () => void): void
   source: string
+  theme: MermaidTheme
 }
 
 export function createMermaidController({
@@ -57,12 +53,12 @@ export function createMermaidController({
   createResizeObserver,
   editor,
   host,
-  media,
   onError,
   onHeight,
   onReady,
   schedule,
   source,
+  theme: initialTheme,
 }: MermaidControllerOptions) {
   let disposed = false
   let fallback = false
@@ -72,6 +68,7 @@ export function createMermaidController({
   let resizeObserver: ResizeObserverLike | undefined
   let previousWidth = 0
   let bounds: MermaidBounds | null = null
+  let theme = initialTheme
 
   function fit(): void {
     if (bounds && !disposed) editor.zoomToBounds(bounds, { inset: diagramFitPadding })
@@ -90,7 +87,6 @@ export function createMermaidController({
     if (disposed) return
     disposed = true
     resizeObserver?.disconnect()
-    media.removeEventListener("change", handleThemeChange)
   }
 
   function fail(error: unknown): void {
@@ -108,12 +104,13 @@ export function createMermaidController({
       }
 
       let renderedFallback = false
+      const renderedTheme = theme
       await createDiagram(source, {
         mermaidConfig: {
           securityLevel: "strict",
           suppressErrorRendering: true,
-          theme: media.matches ? "dark" : "default",
-          themeVariables: { darkMode: media.matches },
+          theme: renderedTheme === "dark" ? "dark" : "default",
+          themeVariables: { darkMode: renderedTheme === "dark" },
         },
         async onUnsupportedDiagram(svg) {
           renderedFallback = true
@@ -129,6 +126,7 @@ export function createMermaidController({
       editor.clearHistory()
       fallback = renderedFallback
       rendered = version
+      if (fallback && renderedTheme !== theme) requested += 1
       resize()
     }
   }
@@ -139,12 +137,13 @@ export function createMermaidController({
     return pending
   }
 
-  function handleThemeChange(): void {
-    if (pending || fallback) void requestRender().catch(fail)
+  function setTheme(nextTheme: MermaidTheme): void {
+    if (theme === nextTheme || disposed) return
+    theme = nextTheme
+    if (!pending && fallback) void requestRender().catch(fail)
   }
 
   async function start(): Promise<void> {
-    media.addEventListener("change", handleThemeChange)
     try {
       await requestRender()
       if (disposed) return
@@ -159,6 +158,7 @@ export function createMermaidController({
   return {
     dispose,
     fit,
+    setTheme,
     start,
     zoomIn: () => editor.zoomIn(),
     zoomOut: () => editor.zoomOut(),

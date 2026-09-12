@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
 
+import { useTheme } from "./components/ThemeProvider.tsx"
 import { MermaidSource } from "./MermaidSource.tsx"
 
 const MermaidCanvas = lazy(() => import("./MermaidCanvas.tsx"))
@@ -31,6 +32,7 @@ class MermaidBoundary extends Component<MermaidBoundaryProps, MermaidBoundarySta
 export function MermaidBlock({ source }: { source: string }) {
   const host = useRef<HTMLDivElement>(null)
   const [nearViewport, setNearViewport] = useState(false)
+  const { resolvedTheme } = useTheme()
 
   useEffect(() => {
     if (!host.current || typeof IntersectionObserver === "undefined") {
@@ -51,7 +53,7 @@ export function MermaidBlock({ source }: { source: string }) {
       {nearViewport ? (
         <MermaidBoundary source={source}>
           <Suspense fallback={<MermaidSource source={source} />}>
-            <MermaidCanvas source={source} />
+            <MermaidCanvas source={source} theme={resolvedTheme} />
           </Suspense>
         </MermaidBoundary>
       ) : <MermaidSource source={source} />}

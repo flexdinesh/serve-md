@@ -66,7 +66,7 @@ Use only semantic tokens:
 - `--color-destructive`, `--color-destructive-subtle`: failures and destructive actions
 - `--color-overlay`: modal backdrop only
 
-Light and dark modes use the same roles. Dark mode follows `prefers-color-scheme`; never branch component styling into unrelated dark variants.
+Light and dark modes use the same roles. The theme control offers Light, Dark, and System. Explicit choices apply `light` or `dark` to the root element; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, and tldraw synchronized with the resolved theme. Never branch component styling into unrelated dark variants.
 
 Accent is functional, not decorative. Use it for navigation selection, links, focus, and primary action emphasis. Do not use it on large surfaces or routine headings.
 
@@ -78,7 +78,7 @@ Status meaning must pair color with text, iconography, or another non-color cue.
 
 Inter Variable is the UI and reading face. The system monospace stack is reserved for code. Load fonts locally so the viewer remains useful without internet access.
 
-The type scale is intentionally small:
+The type scale uses 16px body copy and 14px interface text while retaining compact metadata and clear document headings:
 
 | Role | Token | Use |
 | --- | --- | --- |
@@ -86,9 +86,9 @@ The type scale is intentionally small:
 | Section heading | `--text-2xl` | Markdown `h2` |
 | Subsection heading | `--text-xl` | Markdown `h3` |
 | Minor heading | `--text-lg` | Markdown `h4`, prominent empty-state title, large search input |
-| Body | `--text-base` | Markdown prose and default UI copy |
-| Small body/label | `--text-sm` | navigation, result titles, alerts, supporting UI |
-| Metadata/caption | `--text-xs` | paths, statuses, overlines, secondary search text |
+| Body | `--text-base` (16px/24px) | Markdown prose and default UI copy |
+| Small body/label | `--text-sm` (14px/20px) | navigation, result titles, alerts, supporting UI |
+| Metadata/caption | `--text-xs` (12px/16px) | paths, statuses, overlines, secondary search text |
 
 Use weight 700 for document hierarchy, 600 for selected items and labels, and 400–500 for copy. Headings use tight letter spacing and compact line height. Prose uses a 1.75 line height. Labels may use uppercase only at `--text-xs`, with deliberate tracking.
 
@@ -166,7 +166,11 @@ Cards are exceptional, not the default container. Use them only for a repeated, 
 
 ### Navigation
 
-The file tree stays compact and visually secondary to the document. Folder disclosure uses native semantics. Hover changes surface and text contrast. The selected file uses accent text, subtle accent fill, a leading indicator, and `aria-current="page"`.
+The file tree stays compact and visually secondary to the document. Folder disclosure uses native semantics. Hover changes surface and text contrast. The selected file uses a full-width rectangular row with square corners, accent text, subtle accent fill, a 2px leading indicator, weight 600, and `aria-current="page"`.
+
+### Theme control
+
+Use a shadcn-style icon trigger in the header next to Search. Its dropdown presents Light, Dark, and System as a single-choice group and marks the configured choice. The trigger reflects the resolved light/dark appearance and has an accessible label that names the configured theme. The menu and trigger use shared control, surface, border, focus, and typography tokens.
 
 ### Overlays and modals
 
