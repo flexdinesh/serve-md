@@ -1,147 +1,117 @@
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
-import { MarkdownDocument } from "./MarkdownDocument.tsx"
+import { DocumentPane } from "./DocumentPane.tsx"
+import { FileTree } from "./FileTree.tsx"
+import {
+  emptyPage,
+  isPageLoadResult,
+  openDirectoryPaths,
+  type PageData,
+  type PageLoadResult,
+} from "./page-data.ts"
 import { SearchDialog } from "./SearchDialog.tsx"
 
-interface TreeNode {
-  children: TreeNode[]
-  isDir: boolean
-  name: string
-  open: boolean
-  path: string
-  selected: boolean
+function initialPage(result: PageLoadResult): PageData | null {
+  return result.kind === "page" ? result.page : null
 }
 
-interface PageData {
-  content: string
-  empty: boolean
-  error: string
-  hasFile: boolean
-  rootName: string
-  selected: string
-  tree: TreeNode[]
-  warnings: string[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function isTreeNode(value: unknown): value is TreeNode {
-  return isRecord(value)
-    && Array.isArray(value.children)
-    && value.children.every(isTreeNode)
-    && typeof value.isDir === "boolean"
-    && typeof value.name === "string"
-    && typeof value.open === "boolean"
-    && typeof value.path === "string"
-    && typeof value.selected === "boolean"
-}
-
-function isPageData(value: unknown): value is PageData {
-  return isRecord(value)
-    && typeof value.content === "string"
-    && typeof value.empty === "boolean"
-    && typeof value.error === "string"
-    && typeof value.hasFile === "boolean"
-    && typeof value.rootName === "string"
-    && typeof value.selected === "string"
-    && Array.isArray(value.tree)
-    && value.tree.every(isTreeNode)
-    && Array.isArray(value.warnings)
-    && value.warnings.every((warning) => typeof warning === "string")
-}
-
-function TreeNodes({ nodes }: { nodes: readonly TreeNode[] }) {
-  return nodes.map((node) => (
-    <li key={node.path}>
-      {node.isDir ? (
-        <details open={node.open}>
-          <summary>{node.name}/</summary>
-          <ul><TreeNodes nodes={node.children} /></ul>
-        </details>
-      ) : (
-        <a
-          className={node.selected ? "selected" : undefined}
-          aria-current={node.selected ? "page" : undefined}
-          href={`/view?path=${encodeURIComponent(node.path)}`}
-        >
-          {node.name}
-        </a>
-      )}
-    </li>
-  ))
-}
-
-function pageEndpoint(): string {
-  if (window.location.pathname !== "/view") return "/api/page"
-  const selected = new URLSearchParams(window.location.search).get("path") || ""
-  return `/api/page?path=${encodeURIComponent(selected)}`
-}
-
-function initialPageData(): PageData | null {
-  const source = document.querySelector<HTMLTemplateElement>("#app-data")?.content.textContent.trim()
-  if (!source?.startsWith("{")) return null
-  try {
-    const data: unknown = JSON.parse(source)
-    return isPageData(data) ? data : null
-  } catch {
-    return null
+function activePageResult(matches: readonly { loaderData?: unknown }[]): PageLoadResult | null {
+  for (let index = matches.length - 1; index >= 0; index--) {
+    const loaderData: unknown = matches[index]?.loaderData
+    if (isPageLoadResult(loaderData)) return loaderData
   }
-}
-
-const emptyPage: PageData = {
-  content: "",
-  empty: false,
-  error: "",
-  hasFile: false,
-  rootName: "",
-  selected: "",
-  tree: [],
-  warnings: [],
+  return null
 }
 
 export function App() {
+  const navigate = useNavigate()
+  const router = useRouter()
+  const result = useRouterState({ select: (state) => activePageResult(state.matches) })
+  const isLoading = useRouterState({ select: (state) => state.isLoading })
+  const main = useRef<HTMLElement>(null)
   const openSearch = useRef<() => void>(() => {})
-  const [data, setData] = useState<PageData | null>(initialPageData)
+  const focusDocument = useRef(false)
+  const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
+  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(
+    () => new Set(openDirectoryPaths(result ? initialPage(result)?.tree ?? [] : [])),
+  )
+
+  useEffect(() => {
+    if (!result || result.kind !== "page") return
+    setLastPage(result.page)
+    const pathsToOpen = openDirectoryPaths(result.page.tree)
+    if (pathsToOpen.length === 0) return
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      let changed = false
+      for (const path of pathsToOpen) {
+        if (!next.has(path)) {
+          next.add(path)
+          changed = true
+        }
+      }
+      return changed ? next : current
+    })
+  }, [result])
+
+  useEffect(() => {
+    if (isLoading || !focusDocument.current) return
+    focusDocument.current = false
+    main.current?.focus({ preventScroll: true })
+  }, [isLoading, result])
 
   const registerSearch = useCallback((open: (() => void) | null) => {
     openSearch.current = open ?? (() => {})
   }, [])
 
-  useEffect(() => {
-    if (data) return undefined
-    const controller = new AbortController()
-    fetch(pageEndpoint(), { headers: { Accept: "application/json" }, signal: controller.signal })
-      .then(async (response) => {
-        const payload: unknown = await response.json()
-        if (!isPageData(payload)) throw new Error("Invalid page response")
-        setData(payload)
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof Error) || error.name !== "AbortError") {
-          setData({ ...emptyPage, empty: true, error: "Could not load Markdown files." })
-        }
-      })
-    return () => controller.abort()
-  }, [data])
+  const navigateToDocument = useCallback((path: string) => {
+    focusDocument.current = true
+    void navigate({ to: "/view", search: { path }, hash: "" })
+  }, [navigate])
+
+  const navigateToHref = useCallback((href: string) => {
+    focusDocument.current = true
+    void navigate({ href })
+  }, [navigate])
+
+  const updateExpanded = useCallback((path: string, expanded: boolean) => {
+    setExpandedPaths((current) => {
+      if (current.has(path) === expanded) return current
+      const next = new Set(current)
+      if (expanded) next.add(path)
+      else next.delete(path)
+      return next
+    })
+  }, [])
+
+  const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
+  const hasData = result?.kind === "page" || lastPage !== null
+  const loadError = result?.kind === "failure" ? result.message : ""
 
   useEffect(() => {
-    document.title = `${data?.selected ? `${data.selected} · ` : ""}serve-md`
-  }, [data?.selected])
-
-  const page = data || emptyPage
+    document.title = `${page.selected ? `${page.selected} · ` : ""}serve-md`
+  }, [page.selected])
 
   return (
     <>
+      <div className={`navigation-progress${isLoading ? " active" : ""}`} aria-hidden="true" />
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {isLoading ? "Loading document…" : page.selected ? `${page.selected} loaded.` : ""}
+      </div>
       <header className="app-header">
         <div className="app-identity">
-          <a className="brand" href="/" aria-label="serve-md home">
+          <Link className="brand" to="/" search={{}} aria-label="serve-md home">
             <span className="brand-mark" aria-hidden="true">M</span>
             <span>serve-md</span>
-          </a>
+          </Link>
           {page.rootName && <span className="root-name" title={page.rootName}>{page.rootName}</span>}
         </div>
         <Button
@@ -160,32 +130,23 @@ export function App() {
         </Button>
       </header>
       <div className="layout">
-        <aside aria-label="Markdown files">
-          <div className="tree-title">Files</div>
-          {!data ? <p className="muted">Loading Markdown files…</p> : page.empty ? <p className="muted">No Markdown files found.</p> : <ul className="tree"><TreeNodes nodes={page.tree} /></ul>}
-          {page.warnings.length > 0 && (
-            <details className="warnings">
-              <summary>Some paths could not be read</summary>
-              <ul>{page.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
-            </details>
-          )}
-        </aside>
-        <main>
-          {page.error && <div className="error" role="alert">{page.error}</div>}
-          {page.hasFile ? <MarkdownDocument key={page.selected} html={page.content} /> : data && !page.error ? (
-            <div className="empty">
-              <div className="empty-mark" aria-hidden="true">M</div>
-              <h1>Choose a Markdown file</h1>
-              <p>Select a Markdown file from the folder tree.</p>
-            </div>
-          ) : null}
-        </main>
+        <FileTree
+          expandedPaths={expandedPaths}
+          hasData={hasData}
+          onExpandedChange={updateExpanded}
+          page={page}
+        />
+        <DocumentPane
+          hasData={hasData}
+          isLoading={isLoading}
+          loadError={loadError}
+          main={main}
+          navigate={navigateToHref}
+          page={page}
+          retry={() => { void router.invalidate() }}
+        />
       </div>
       <SearchDialog navigate={navigateToDocument} registerOpen={registerSearch} />
     </>
   )
-}
-
-function navigateToDocument(path: string): void {
-  window.location.assign(`/view?path=${encodeURIComponent(path)}`)
 }

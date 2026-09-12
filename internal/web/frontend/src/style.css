@@ -131,6 +131,26 @@ a {
   background: var(--color-accent-subtle);
 }
 
+.navigation-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: 35%;
+  height: 2px;
+  background: var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: opacity 120ms ease, transform 800ms ease;
+}
+
+.navigation-progress.active {
+  opacity: 1;
+  transform: scaleX(2.7);
+}
+
 .app-header {
   position: sticky;
   top: 0;
