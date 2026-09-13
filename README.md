@@ -10,11 +10,21 @@ Serve and browse Markdown files from a local directory.
 
 ## Install
 
+### Homebrew
+
+```sh
+brew install flexdinesh/tap/servef
+```
+
+### Go
+
 Requires Go 1.24 or later.
 
 ```sh
 go install github.com/flexdinesh/servef@latest
 ```
+
+See the [release guide](docs/release.md) for publishing details.
 
 ## Run
 
@@ -45,6 +55,7 @@ Run checks:
 ```sh
 go test ./...
 pnpm test:web
+pnpm test:release
 pnpm typecheck
 pnpm exec playwright install --with-deps chromium
 pnpm test:browser

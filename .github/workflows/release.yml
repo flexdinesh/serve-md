@@ -47,23 +47,34 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Validate version
+        id: version
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
+
           if [[ ! "$RELEASE_VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "version must be a semantic version such as v0.1.0" >&2
             exit 1
           fi
 
-          if git rev-parse --verify --quiet "refs/tags/$RELEASE_VERSION"; then
-            echo "$RELEASE_VERSION already exists" >&2
-            exit 1
+          git fetch --tags --force
+          if tag_commit="$(git rev-list -n 1 "$RELEASE_VERSION" 2>/dev/null)"; then
+            head_commit="$(git rev-parse HEAD)"
+            if [[ "$tag_commit" != "$head_commit" ]]; then
+              echo "$RELEASE_VERSION points to $tag_commit, not current main $head_commit" >&2
+              exit 1
+            fi
           fi
+
+          echo "tag=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "number=${RELEASE_VERSION#v}" >> "$GITHUB_OUTPUT"
 
       - name: Test
         run: |
           go test ./...
           pnpm test:web
+          pnpm test:release
           pnpm typecheck
 
       - name: Test browser
@@ -89,12 +100,131 @@ jobs:
           git diff --exit-code -- internal/web/dist
           go build ./...
 
-      - name: Create GitHub release
+      - name: Build release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ steps.version.outputs.number }}"
+          commit="$(git rev-parse --short=12 HEAD)"
+          date="$(git show -s --format=%cI HEAD)"
+          module="github.com/flexdinesh/servef/internal/version"
+
+          rm -rf release-dist
+          mkdir -p release-dist
+
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            archive_dir="servef_${version}_${goos}_${goarch}"
+            mkdir -p "release-dist/${archive_dir}"
+
+            CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
+              -trimpath \
+              -ldflags="-s -w -X ${module}.Version=${version} -X ${module}.Commit=${commit} -X ${module}.Date=${date}" \
+              -o "release-dist/${archive_dir}/servef" \
+              .
+
+            cp README.md LICENSE "release-dist/${archive_dir}/"
+            tar -C release-dist -czf "release-dist/${archive_dir}.tar.gz" "${archive_dir}"
+            rm -rf "release-dist/${archive_dir}"
+          done
+
+          (
+            cd release-dist
+            shasum -a 256 *.tar.gz > checksums.txt
+          )
+
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          gh release create "$RELEASE_VERSION" \
-            --target "$(git rev-parse HEAD)" \
-            --title "$RELEASE_VERSION" \
-            --generate-notes
+          set -euo pipefail
+
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_VERSION" release-dist/*.tar.gz release-dist/checksums.txt --clobber
+          else
+            gh release create "$RELEASE_VERSION" \
+              release-dist/*.tar.gz \
+              release-dist/checksums.txt \
+              --target "$(git rev-parse HEAD)" \
+              --title "$RELEASE_VERSION" \
+              --generate-notes
+          fi
+
+      - name: Check out Homebrew tap
+        uses: actions/checkout@v7
+        with:
+          repository: flexdinesh/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          fetch-depth: 0
+
+      - name: Generate Homebrew formula
+        run: |
+          pnpm generate:homebrew -- \
+            --version "${{ steps.version.outputs.number }}" \
+            --tag "${{ steps.version.outputs.tag }}" \
+            --checksums release-dist/checksums.txt \
+            --output homebrew-tap/Formula/servef.rb
+
+      - name: Validate Homebrew formula syntax
+        run: ruby -c homebrew-tap/Formula/servef.rb
+
+      - name: Open Homebrew tap pull request
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${{ steps.version.outputs.number }}"
+          tag="${{ steps.version.outputs.tag }}"
+          branch="servef-v${version}"
+          tap_repo="flexdinesh/homebrew-tap"
+
+          cd homebrew-tap
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+
+          if [[ -z "$(git status --porcelain -- Formula/servef.rb)" ]]; then
+            echo "Homebrew formula is already up to date for servef v${version}."
+            exit 0
+          fi
+
+          git add Formula/servef.rb
+          git commit -m "Update servef to v${version}"
+          git push --force-with-lease origin "HEAD:${branch}"
+
+          pr_number="$(gh pr list \
+            --repo "$tap_repo" \
+            --head "$branch" \
+            --state open \
+            --json number \
+            --jq '.[0].number // ""')"
+
+          pr_body="$(mktemp)"
+          cat > "$pr_body" <<EOF
+          Updates the servef formula to v${version}.
+
+          Source release: https://github.com/flexdinesh/servef/releases/tag/${tag}
+
+          This PR was generated by the servef release workflow.
+          EOF
+
+          if [[ -n "$pr_number" ]]; then
+            gh pr edit "$pr_number" \
+              --repo "$tap_repo" \
+              --title "Update servef to v${version}" \
+              --body-file "$pr_body"
+          else
+            gh pr create \
+              --repo "$tap_repo" \
+              --head "$branch" \
+              --base main \
+              --title "Update servef to v${version}" \
+              --body-file "$pr_body"
+          fi

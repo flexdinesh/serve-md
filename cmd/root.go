@@ -18,6 +18,7 @@ import (
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/version"
 	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
 )
@@ -48,6 +49,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	command := &cobra.Command{
 		Use:           "servef [path]",
 		Short:         "Browse local Markdown files in a web browser",
+		Version:       version.String(),
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -70,6 +72,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 			return runCommand(command.Context(), opts, command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
+	command.SetVersionTemplate("{{.Version}}\n")
 
 	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan")
 	command.Flags().IntVar(&opts.port, "port", 0, "local port; 0 selects a free port")

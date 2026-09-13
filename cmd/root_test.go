@@ -45,6 +45,22 @@ func TestRootCommandHelpUsesServef(t *testing.T) {
 	}
 }
 
+func TestRootCommandPrintsVersionWithoutRunning(t *testing.T) {
+	var output bytes.Buffer
+	command := newRootCommand(func(context.Context, options, io.Writer, io.Writer) error {
+		t.Fatal("runner called for version")
+		return nil
+	})
+	command.SetOut(&output)
+	command.SetArgs([]string{"--version"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "servef dev\n"; got != want {
+		t.Fatalf("version output = %q, want %q", got, want)
+	}
+}
+
 func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 	var got options
 	command := newRootCommand(func(_ context.Context, opts options, _, _ io.Writer) error {

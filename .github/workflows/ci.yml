@@ -38,6 +38,7 @@ jobs:
         run: |
           go test ./...
           pnpm test:web
+          pnpm test:release
           pnpm typecheck
 
       - name: Vet
