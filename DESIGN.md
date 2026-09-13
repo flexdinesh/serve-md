@@ -66,7 +66,7 @@ Use only semantic tokens:
 - `--color-destructive`, `--color-destructive-subtle`: failures and destructive actions
 - `--color-overlay`: modal backdrop only
 
-Light and dark modes use the same roles. The theme control offers Light, Dark, and System. Explicit choices apply `light` or `dark` to the root element; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, and tldraw synchronized with the resolved theme. Never branch component styling into unrelated dark variants.
+Light and dark modes use the same roles. The theme control offers Light, Dark, and System. Explicit choices apply `light` or `dark` to the root element; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with the resolved theme. Never branch component styling into unrelated dark variants.
 
 Accent is functional, not decorative. Use it for navigation selection, links, focus, and primary action emphasis. Do not use it on large surfaces or routine headings.
 

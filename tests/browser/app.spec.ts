@@ -1,4 +1,14 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
+
+const mermaidCaseCount = 4
+
+async function revealMermaidCases(page: Page) {
+  const blocks = page.locator("main .mermaid-lazy")
+  await expect(blocks).toHaveCount(mermaidCaseCount)
+  for (let index = 0; index < mermaidCaseCount; index++) {
+    await blocks.nth(index).scrollIntoViewIfNeeded()
+  }
+}
 
 test("uses embedded page data on a direct production load", async ({ page }) => {
   let pageRequests = 0
@@ -236,8 +246,55 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
   await expect(selected).toHaveCSS("border-radius", "0px")
 })
 
-test("mounts each Mermaid block in a lazy host", async ({ page }) => {
+test("renders every Mermaid fixture with default Excalidraw", async ({ page }) => {
+  const fontResponses: number[] = []
+  page.on("response", (response) => {
+    const url = new URL(response.url())
+    if (url.pathname.startsWith("/assets/excalidraw/fonts/")) fontResponses.push(response.status())
+  })
   await page.goto("/view?path=guides%2Fdiagrams.md")
+  await revealMermaidCases(page)
 
-  await expect(page.locator("main .mermaid-lazy")).toHaveCount(2)
+  await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
+  await expect(page.locator("main .mermaid-excalidraw")).toHaveCount(mermaidCaseCount)
+  await expect(page.locator("main .mermaid-excalidraw .excalidraw").first()).toBeVisible()
+  await expect(page.locator("main .mermaid-excalidraw [data-testid='main-menu-trigger']").first()).toBeHidden()
+  await expect(page.locator("main .mermaid-excalidraw .zoom-actions").first()).toBeHidden()
+  await expect(page.locator("main .tl-container")).toHaveCount(0)
+  await expect.poll(() => fontResponses.some((status) => status === 200)).toBe(true)
+
+  const canvas = page.locator("main .mermaid-excalidraw canvas").first()
+  await canvas.scrollIntoViewIfNeeded()
+  const bounds = await canvas.boundingBox()
+  if (!bounds) throw new Error("Excalidraw canvas has no bounds")
+  const pointer = {
+    x: Math.round(bounds.x + bounds.width / 3),
+    y: Math.round(bounds.y + bounds.height / 3),
+  }
+  await page.evaluate(() => {
+    const capturePointer = (event: PointerEvent) => {
+      if (event.isTrusted) return
+      document.documentElement.dataset.excalidrawPointer = `${event.clientX},${event.clientY}`
+      document.removeEventListener("pointermove", capturePointer)
+    }
+    document.addEventListener("pointermove", capturePointer)
+  })
+  await canvas.dispatchEvent("wheel", {
+    bubbles: true,
+    cancelable: true,
+    clientX: pointer.x,
+    clientY: pointer.y,
+    ctrlKey: true,
+    deltaY: -1,
+  })
+  await expect(page.locator("html")).toHaveAttribute("data-excalidraw-pointer", `${pointer.x},${pointer.y}`)
+})
+
+test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => {
+  await page.goto("http://127.0.0.1:18081/view?path=guides%2Fdiagrams.md")
+  await revealMermaidCases(page)
+
+  await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
+  await expect(page.locator("main .tl-container")).toHaveCount(mermaidCaseCount)
+  await expect(page.locator("main .mermaid-excalidraw")).toHaveCount(0)
 })

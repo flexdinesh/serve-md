@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/flexdinesh/serve-md/internal/features"
 )
 
 func TestRootCommandDefaults(t *testing.T) {
@@ -22,7 +24,7 @@ func TestRootCommandDefaults(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got.path != "." || got.depth != 5 || got.port != 0 || got.noOpen || len(got.exclusions) != 0 {
+	if got.path != "." || got.depth != 5 || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
 		t.Fatalf("default options = %+v", got)
 	}
 }
@@ -33,7 +35,7 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 		got = opts
 		return nil
 	})
-	command.SetArgs([]string{"docs", "--depth", "3", "--port", "8080", "--no-open", "--exclude", "drafts", "--exclude", "generated"})
+	command.SetArgs([]string{"docs", "--depth", "3", "--port", "8080", "--no-open", "--exclude", "drafts", "--exclude", "generated", "--feature", features.MermaidTldraw, "--feature", features.MermaidTldraw})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -42,6 +44,9 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 	}
 	if strings.Join(got.exclusions, ",") != "drafts,generated" {
 		t.Fatalf("exclusions = %v", got.exclusions)
+	}
+	if !got.features.BrowserData().MermaidTldraw {
+		t.Fatal("mermaid-tldraw feature not enabled")
 	}
 }
 
@@ -60,6 +65,18 @@ func TestRootCommandValidatesArguments(t *testing.T) {
 		if err := command.Execute(); err == nil {
 			t.Fatalf("Execute(%v) error = nil", args)
 		}
+	}
+}
+
+func TestRootCommandRejectsUnknownFeatureBeforeRun(t *testing.T) {
+	command := newRootCommand(func(context.Context, options, io.Writer, io.Writer) error {
+		t.Fatal("runner called for unknown feature")
+		return nil
+	})
+	command.SetArgs([]string{"--feature", "unknown"})
+	err := command.Execute()
+	if err == nil || !strings.Contains(err.Error(), `unknown feature "unknown"`) || !strings.Contains(err.Error(), features.MermaidTldraw) {
+		t.Fatalf("Execute() error = %v", err)
 	}
 }
 

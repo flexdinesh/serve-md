@@ -20,7 +20,7 @@ Press <kbd>Command</kbd>+<kbd>K</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>K</kbd> e
 
 ## Mermaid diagrams
 
-Fenced `mermaid` blocks render as read-only tldraw canvases and follow your system's light or dark theme:
+Fenced `mermaid` blocks render as read-only Excalidraw canvases by default and follow your system's light or dark theme:
 
 ````markdown
 ```mermaid
@@ -30,11 +30,23 @@ flowchart LR
 ```
 ````
 
-Flowcharts, sequence diagrams, state diagrams, and mindmaps become native tldraw shapes. Other valid Mermaid diagram types fall back to a static SVG on the canvas. Pan with the canvas and use the −, Fit, and + controls to adjust zoom. Canvases load only as they approach the viewport. If loading or rendering fails, the source stays visible with a short error.
+Supported diagrams become native Excalidraw shapes. Unsupported conversions and rendering failures leave the source visible with a short error. Canvases load only as they approach the viewport.
 
-Diagram code bundles React 19.2.1, tldraw 5.4.0, `@tldraw/mermaid` 5.4.0, and its Mermaid 11.16.1 dependency. tldraw fonts and assets require internet access and load from tldraw's CDN. `@tldraw/mermaid` uses Mermaid internally for parsing and layout.
+Use the tldraw renderer at server boot:
+
+```sh
+serve-md . --feature mermaid-tldraw
+```
+
+tldraw supports native flowcharts, sequence diagrams, state diagrams, and mindmaps, with other valid Mermaid types rendered as static SVGs on its canvas.
+
+`--feature` is repeatable. Unknown feature names fail startup. The server exposes the effective browser flags at `GET /api/features`; flags stay fixed for the server process.
+
+Diagram code bundles React 19.2.1, tldraw 5.4.0, `@tldraw/mermaid` 5.4.0, Excalidraw 0.18.1, and `@excalidraw/mermaid-to-excalidraw` 2.2.2. Excalidraw fonts are embedded locally. tldraw fonts and assets still require internet access and load from tldraw's CDN.
 
 ## Development
+
+See [docs/development.md](docs/development.md) for the web development workflow and feature flags.
 
 Frontend development requires Node.js 26 and pnpm 11. Node-run code uses native TypeScript; React uses Vite TypeScript. Only generated browser bundles in `internal/web/dist` remain JavaScript.
 

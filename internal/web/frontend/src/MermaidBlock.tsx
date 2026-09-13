@@ -1,9 +1,12 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
 
+import { useFeatures } from "./components/FeatureProvider.tsx"
 import { useTheme } from "./components/ThemeProvider.tsx"
+import { mermaidRenderer } from "./features.ts"
 import { MermaidSource } from "./MermaidSource.tsx"
 
 const MermaidCanvas = lazy(() => import("./MermaidCanvas.tsx"))
+const ExcalidrawMermaidCanvas = lazy(() => import("./ExcalidrawMermaidCanvas.tsx"))
 
 interface MermaidBoundaryProps {
   children: ReactNode
@@ -32,7 +35,9 @@ class MermaidBoundary extends Component<MermaidBoundaryProps, MermaidBoundarySta
 export function MermaidBlock({ source }: { source: string }) {
   const host = useRef<HTMLDivElement>(null)
   const [nearViewport, setNearViewport] = useState(false)
+  const features = useFeatures()
   const { resolvedTheme } = useTheme()
+  const renderer = mermaidRenderer(features)
 
   useEffect(() => {
     if (!host.current || typeof IntersectionObserver === "undefined") {
@@ -53,7 +58,9 @@ export function MermaidBlock({ source }: { source: string }) {
       {nearViewport ? (
         <MermaidBoundary source={source}>
           <Suspense fallback={<MermaidSource source={source} />}>
-            <MermaidCanvas source={source} theme={resolvedTheme} />
+            {renderer === "excalidraw"
+              ? <ExcalidrawMermaidCanvas source={source} theme={resolvedTheme} />
+              : <MermaidCanvas source={source} theme={resolvedTheme} />}
           </Suspense>
         </MermaidBoundary>
       ) : <MermaidSource source={source} />}

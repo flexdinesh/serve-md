@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/flexdinesh/serve-md/internal/features"
 	"github.com/flexdinesh/serve-md/internal/files"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -36,6 +37,7 @@ type Config struct {
 	Root       string
 	Depth      int
 	Exclusions []string
+	Features   features.Set
 }
 
 // App is an HTTP handler for the Markdown browser.
@@ -117,6 +119,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveSearchDocuments(w)
 		return
 	}
+	if r.URL.Path == "/api/features" {
+		a.serveFeatures(w)
+		return
+	}
 	if r.URL.Path == "/api/page" {
 		selected, required := r.URL.Query()["path"]
 		pathValue := ""
@@ -182,9 +188,21 @@ func (a *App) serveShell(w http.ResponseWriter, status int, data pageData) {
 		return
 	}
 	content := strings.Replace(a.shell, "{{APP_DATA}}", string(encoded), 1)
+	encodedFeatures, err := json.Marshal(a.config.Features.BrowserData())
+	if err != nil {
+		http.Error(w, "could not render page", http.StatusInternalServerError)
+		return
+	}
+	content = strings.Replace(content, "{{FEATURE_DATA}}", string(encodedFeatures), 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(content))
+}
+
+func (a *App) serveFeatures(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, a.config.Features.BrowserData())
 }
 
 func (a *App) serveSearchDocuments(w http.ResponseWriter) {

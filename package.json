@@ -4,10 +4,9 @@
   "type": "module",
   "scripts": {
     "build:web": "vite build --configLoader native",
-    "clean": "node -e \"require('node:fs').rmSync('internal/web/dist', { recursive: true, force: true })\"",
-    "dev:server": "pnpm clean && pnpm build:web && go run . testdata/markdown --port 8080 --no-open",
-    "dev:web": "vite --configLoader native",
-    "dev": "concurrently --kill-others \"pnpm dev:server\" \"pnpm dev:web\"",
+    "dev:server": "go run . testdata/markdown --port 8080 --no-open",
+    "dev:web": "vite --configLoader native --port 5173 --strictPort",
+    "dev": "pnpm build:web && pnpm run --parallel '/^dev:(server|web)$/'",
     "link:local": "pnpm build:web && go install .",
     "test:browser": "playwright test",
     "test:web": "node --test internal/web/*.test.ts internal/web/frontend/src/*.test.ts",
@@ -15,6 +14,8 @@
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
+    "@excalidraw/excalidraw": "0.18.1",
+    "@excalidraw/mermaid-to-excalidraw": "2.2.2",
     "@fontsource-variable/inter": "5.3.0",
     "@tanstack/react-router": "1.170.33",
     "@tldraw/mermaid": "5.4.0",
@@ -33,7 +34,6 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
-    "concurrently": "10.0.5",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.2.2"

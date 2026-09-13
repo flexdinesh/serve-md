@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
 const apiPort = 18080
+const tldrawApiPort = 18081
 const webPort = 15173
 
 export default defineConfig({
@@ -23,6 +24,12 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: `http://127.0.0.1:${apiPort}/api/page`,
+    },
+    {
+      command: `go run . testdata/markdown --port ${tldrawApiPort} --no-open --feature mermaid-tldraw`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `http://127.0.0.1:${tldrawApiPort}/api/features`,
     },
     {
       command: `pnpm exec vite --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`,
