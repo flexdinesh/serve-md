@@ -20,3 +20,21 @@ sequenceDiagram
     Server-->>App: Rendered Markdown
 ```
 
+## Renderer selection
+
+```mermaid
+stateDiagram-v2
+    [*] --> Excalidraw
+    Excalidraw --> Tldraw: feature enabled
+    Tldraw --> Excalidraw: restart without feature
+```
+
+## Unsupported diagram fallback
+
+```mermaid
+gitGraph
+    commit id: "boot"
+    branch experiment
+    checkout experiment
+    commit id: "feature"
+```

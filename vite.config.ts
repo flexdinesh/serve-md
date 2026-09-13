@@ -1,4 +1,6 @@
+import { readdir, readFile } from "node:fs/promises"
 import { networkInterfaces } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath, URL } from "node:url"
 
 import react from "@vitejs/plugin-react"
@@ -30,6 +32,47 @@ const devServerBanner: Plugin = {
   },
 }
 
+const excalidrawFontsDirectory = fileURLToPath(
+  new URL(
+    "./node_modules/@excalidraw/excalidraw/dist/prod/fonts",
+    import.meta.url,
+  ),
+)
+
+async function listFiles(directory: string, relativeDirectory = ""): Promise<string[]> {
+  const entries = await readdir(join(directory, relativeDirectory), {
+    withFileTypes: true,
+  })
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = relativeDirectory
+        ? `${relativeDirectory}/${entry.name}`
+        : entry.name
+
+      if (entry.isDirectory()) {
+        return listFiles(directory, relativePath)
+      }
+      return entry.isFile() ? [relativePath] : []
+    }),
+  )
+
+  return files.flat().sort()
+}
+
+const excalidrawFonts: Plugin = {
+  name: "serve-md-excalidraw-fonts",
+  apply: "build",
+  async generateBundle() {
+    for (const relativePath of await listFiles(excalidrawFontsDirectory)) {
+      this.emitFile({
+        type: "asset",
+        fileName: `excalidraw/fonts/${relativePath}`,
+        source: await readFile(join(excalidrawFontsDirectory, relativePath)),
+      })
+    }
+  },
+}
+
 export default defineConfig(({ command }) => ({
   base: command === "build" ? "/assets/" : "/",
   build: {
@@ -37,7 +80,7 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     outDir: "../dist",
   },
-  plugins: [react(), tailwindcss(), devServerBanner],
+  plugins: [react(), tailwindcss(), devServerBanner, excalidrawFonts],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./internal/web/frontend/src", import.meta.url)),
@@ -48,6 +91,8 @@ export default defineConfig(({ command }) => ({
     host: "0.0.0.0",
     open: shouldOpenBrowser(process.env),
     proxy: {
+      "/assets/excalidraw":
+        process.env.SERVE_MD_API_TARGET || "http://127.0.0.1:8080",
       "/api": process.env.SERVE_MD_API_TARGET || "http://127.0.0.1:8080",
     },
   },

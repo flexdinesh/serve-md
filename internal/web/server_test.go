@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/flexdinesh/serve-md/internal/features"
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
@@ -51,6 +53,10 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		`GoAPI[&quot;Go API &amp; renderer&quot;]`,
 		`<pre><code class="language-mermaid">sequenceDiagram`,
 		`User-&gt;&gt;App: Open nested document`,
+		`<pre><code class="language-mermaid">stateDiagram-v2`,
+		`Excalidraw --&gt; Tldraw: feature enabled`,
+		`<pre><code class="language-mermaid">gitGraph`,
+		`commit id: &quot;feature&quot;`,
 	)
 	if strings.Contains(diagramsData.Content, `GoAPI["Go API & renderer"]`) {
 		t.Fatal("Mermaid source was not HTML-escaped")
@@ -118,6 +124,59 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	assertContains(t, shell.Body.String(), `id="root"`, `id="app-data"`, `/assets/`)
 	if strings.Contains(shell.Body.String(), "{{APP_DATA}}") || strings.Contains(shell.Body.String(), "<script>alert") {
 		t.Fatal("shell contains unexpanded or unsafe app data")
+	}
+}
+
+func TestAppServesAndBootstrapsFeatures(t *testing.T) {
+	set, err := features.Parse([]string{features.MermaidTldraw})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := New(Config{Root: t.TempDir(), Depth: 5, Features: set})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := request(t, app, "/api/features")
+	if response.Code != http.StatusOK {
+		t.Fatalf("features status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if got := response.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := response.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", got)
+	}
+	var endpoint features.Data
+	if err := json.Unmarshal(response.Body.Bytes(), &endpoint); err != nil {
+		t.Fatal(err)
+	}
+	if !endpoint.MermaidTldraw {
+		t.Fatalf("features response = %#v", endpoint)
+	}
+
+	shell := request(t, app, "/")
+	match := regexp.MustCompile(`<template id="feature-data">([^<]+)</template>`).FindStringSubmatch(shell.Body.String())
+	if len(match) != 2 {
+		t.Fatalf("feature bootstrap missing: %s", shell.Body.String())
+	}
+	var bootstrap features.Data
+	if err := json.Unmarshal([]byte(match[1]), &bootstrap); err != nil {
+		t.Fatal(err)
+	}
+	if bootstrap != endpoint {
+		t.Fatalf("bootstrap = %#v, endpoint = %#v", bootstrap, endpoint)
+	}
+}
+
+func TestAppDefaultsFeaturesDisabled(t *testing.T) {
+	response := request(t, newTestApp(t, t.TempDir()), "/api/features")
+	var payload features.Data
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.MermaidTldraw {
+		t.Fatal("mermaid-tldraw enabled by default")
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/flexdinesh/serve-md/internal/browser"
+	"github.com/flexdinesh/serve-md/internal/features"
 	"github.com/flexdinesh/serve-md/internal/files"
 	webui "github.com/flexdinesh/serve-md/internal/web"
 	"github.com/spf13/cobra"
@@ -29,6 +30,7 @@ type options struct {
 	port       int
 	noOpen     bool
 	exclusions []string
+	features   features.Set
 }
 
 type runner func(context.Context, options, io.Writer, io.Writer) error
@@ -42,6 +44,7 @@ func Execute() error {
 
 func newRootCommand(runCommand runner) *cobra.Command {
 	var opts options
+	var featureNames []string
 	command := &cobra.Command{
 		Use:           "serve-md [path]",
 		Short:         "Browse local Markdown files in a web browser",
@@ -59,6 +62,11 @@ func newRootCommand(runCommand runner) *cobra.Command {
 			if opts.port < 0 || opts.port > 65535 {
 				return errors.New("--port must be between 0 and 65535")
 			}
+			parsedFeatures, err := features.Parse(featureNames)
+			if err != nil {
+				return err
+			}
+			opts.features = parsedFeatures
 			return runCommand(command.Context(), opts, command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
@@ -67,6 +75,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	command.Flags().IntVar(&opts.port, "port", 0, "local port; 0 selects a free port")
 	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
 	command.Flags().StringArrayVar(&opts.exclusions, "exclude", nil, "add a directory name to exclude (repeatable)")
+	command.Flags().StringArrayVar(&featureNames, "feature", nil, "enable an experimental feature (repeatable)")
 	return command
 }
 
@@ -82,7 +91,7 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Root: root, Depth: opts.depth, Exclusions: exclusions})
+	app, err := webui.New(webui.Config{Root: root, Depth: opts.depth, Exclusions: exclusions, Features: opts.features})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}

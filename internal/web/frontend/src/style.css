@@ -894,6 +894,17 @@ article hr {
   visibility: visible;
 }
 
+.mermaid-excalidraw .mermaid-canvas,
+.mermaid-excalidraw .excalidraw {
+  height: 100%;
+}
+
+.mermaid-diagram.mermaid-excalidraw .excalidraw .App-menu_top,
+.mermaid-diagram.mermaid-excalidraw .excalidraw .App-menu_bottom,
+.mermaid-diagram.mermaid-excalidraw .excalidraw .App-bottom-bar {
+  display: none;
+}
+
 .mermaid-controls {
   position: absolute;
   right: var(--space-2);
