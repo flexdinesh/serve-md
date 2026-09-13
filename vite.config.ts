@@ -80,6 +80,9 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     outDir: "../dist",
   },
+  optimizeDeps: {
+    include: ["minisearch"],
+  },
   plugins: [react(), tailwindcss(), devServerBanner, excalidrawFonts],
   resolve: {
     alias: {
