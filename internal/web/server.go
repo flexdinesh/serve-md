@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/flexdinesh/serve-md/internal/features"
-	"github.com/flexdinesh/serve-md/internal/files"
+	"github.com/flexdinesh/servef/internal/features"
+	"github.com/flexdinesh/servef/internal/files"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"

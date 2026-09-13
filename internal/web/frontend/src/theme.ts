@@ -1,4 +1,4 @@
-export const THEME_STORAGE_KEY = "serve-md-theme"
+export const THEME_STORAGE_KEY = "servef-theme"
 
 export type Theme = "light" | "dark" | "system"
 export type ResolvedTheme = Exclude<Theme, "system">
@@ -42,7 +42,7 @@ export function storeTheme(theme: Theme): void {
 }
 
 function themeColorScheme(meta: HTMLMetaElement): ResolvedTheme | null {
-  const markedScheme = meta.dataset.serveMdThemeColor
+  const markedScheme = meta.dataset.servefThemeColor
   if (isResolvedTheme(markedScheme)) return markedScheme
 
   const media = meta.media.toLowerCase()
@@ -51,7 +51,7 @@ function themeColorScheme(meta: HTMLMetaElement): ResolvedTheme | null {
     : media.includes("prefers-color-scheme: light")
       ? "light"
       : null
-  if (scheme) meta.dataset.serveMdThemeColor = scheme
+  if (scheme) meta.dataset.servefThemeColor = scheme
   return scheme
 }
 

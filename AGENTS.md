@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`serve-md` is a Go CLI and local server for browsing Markdown through an embedded Vite/React UI.
+`servef` is a Go CLI and local server for browsing Markdown through an embedded Vite/React UI.
 
 ## Boundaries
 
@@ -13,7 +13,7 @@
 ## Distribution
 
 - Production must run from one self-contained Go binary.
-- Node, pnpm, and other JavaScript tooling are build-time only; never require a system JavaScript runtime to run `serve-md`.
+- Node, pnpm, and other JavaScript tooling are build-time only; never require a system JavaScript runtime to run `servef`.
 - Build frontend assets before Go compilation and embed them through `internal/web/dist/`.
 - Bundle runtime assets locally. Do not require a CDN, frontend sidecar, or external asset server.
 
