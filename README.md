@@ -1,19 +1,19 @@
-# serve-md
+# servef
 
-`serve-md` starts a local web server for browsing Markdown files in a directory tree.
+`servef` starts a local web server for browsing Markdown files in a directory tree.
 
 ## Install
 
 Go 1.24 or later is required.
 
 ```sh
-go install github.com/flexdinesh/serve-md@latest
+go install github.com/flexdinesh/servef@latest
 ```
 
 Serve the current directory:
 
 ```sh
-serve-md .
+servef .
 ```
 
 Press <kbd>Command</kbd>+<kbd>K</kbd> on macOS or <kbd>Ctrl</kbd>+<kbd>K</kbd> elsewhere to search Markdown file paths and contents in the browser.
@@ -35,7 +35,7 @@ Supported diagrams become native Excalidraw shapes. Unsupported conversions and 
 Use the tldraw renderer at server boot:
 
 ```sh
-serve-md . --feature mermaid-tldraw
+servef . --feature mermaid-tldraw
 ```
 
 tldraw supports native flowcharts, sequence diagrams, state diagrams, and mindmaps, with other valid Mermaid types rendered as static SVGs on its canvas.
@@ -97,8 +97,8 @@ pnpm dev:vite
 Build and run locally:
 
 ```sh
-go build -o ./bin/serve-md .
-./bin/serve-md .
+go build -o ./bin/servef .
+./bin/servef .
 ```
 
 Build the browser UI and install the local CLI to your Go binary directory:

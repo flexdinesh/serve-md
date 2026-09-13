@@ -1,6 +1,6 @@
-# serve-md design system
+# servef design system
 
-This document is the visual constitution for `serve-md`. The interface exists to make a local Markdown tree easy to scan and a selected document comfortable to read. Product behavior and document content lead; the interface stays quiet.
+This document is the visual constitution for `servef`. The interface exists to make a local Markdown tree easy to scan and a selected document comfortable to read. Product behavior and document content lead; the interface stays quiet.
 
 Implementation source of truth: `internal/web/frontend/src/style.css`. Tailwind theme variables define the shared visual primitives. Semantic classes define recurring product patterns and rendered Markdown, where utility classes are not practical.
 

@@ -35,7 +35,7 @@ export default defineConfig({
       command: `pnpm exec vite --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`,
       env: {
         ...process.env,
-        SERVE_MD_API_TARGET: `http://127.0.0.1:${apiPort}`,
+        SERVEF_API_TARGET: `http://127.0.0.1:${apiPort}`,
       },
       reuseExistingServer: false,
       timeout: 120_000,

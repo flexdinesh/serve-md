@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flexdinesh/serve-md/internal/features"
+	"github.com/flexdinesh/servef/internal/features"
 )
 
 func TestRootCommandDefaults(t *testing.T) {
@@ -26,6 +26,22 @@ func TestRootCommandDefaults(t *testing.T) {
 	}
 	if got.path != "." || got.depth != 5 || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
 		t.Fatalf("default options = %+v", got)
+	}
+}
+
+func TestRootCommandHelpUsesServef(t *testing.T) {
+	var output bytes.Buffer
+	command := newRootCommand(func(context.Context, options, io.Writer, io.Writer) error {
+		t.Fatal("runner called for help")
+		return nil
+	})
+	command.SetOut(&output)
+	command.SetArgs([]string{"--help"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); !strings.Contains(got, "Usage:\n  servef [path] [flags]") {
+		t.Fatalf("help output = %q", got)
 	}
 }
 

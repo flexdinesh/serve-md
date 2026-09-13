@@ -26,17 +26,17 @@ Run this block in one terminal, with `pnpm dev` stopped:
 ```sh
 # Build the self-contained server.
 pnpm build:web
-go build -o ./bin/serve-md .
+go build -o ./bin/servef .
 
 # Stop both background servers when this block exits.
 (
   trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
 
   # Default Excalidraw: http://localhost:8080
-  ./bin/serve-md testdata/markdown --port 8080 --no-open &
+  ./bin/servef testdata/markdown --port 8080 --no-open &
 
   # tldraw: http://localhost:8081
-  ./bin/serve-md testdata/markdown --port 8081 --no-open \
+  ./bin/servef testdata/markdown --port 8081 --no-open \
     --feature mermaid-tldraw &
 
   wait

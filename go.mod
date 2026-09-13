@@ -1,4 +1,4 @@
-module github.com/flexdinesh/serve-md
+module github.com/flexdinesh/servef
 
 go 1.24
 

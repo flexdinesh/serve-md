@@ -58,7 +58,7 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
   await expect(page).toHaveURL(/\/view\?path=guides%2Fgetting-started\.md$/)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("main table")).toContainText("pnpm dev")
-  await expect(page).toHaveTitle("guides/getting-started.md · serve-md")
+  await expect(page).toHaveTitle("guides/getting-started.md · servef")
   await expect(tree.getByRole("link", { name: "getting-started.md" })).toHaveAttribute("aria-current", "page")
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
   await expect.poll(() => tree.evaluate((element) => (
@@ -213,7 +213,7 @@ test("selects and persists an explicit theme", async ({ page }) => {
 
   await expect(page.locator("html")).toHaveClass(/dark/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(16, 18, 23)")
-  expect(await page.evaluate(() => localStorage.getItem("serve-md-theme"))).toBe("dark")
+  expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("dark")
 
   await page.reload()
   await expect(page.getByRole("button", { name: "Theme: Dark" })).toBeVisible()

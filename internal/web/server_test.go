@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flexdinesh/serve-md/internal/features"
+	"github.com/flexdinesh/servef/internal/features"
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	assertContains(t, guideData.Content,
 		"<h1>Getting started</h1>",
 		"<table>",
-		`<pre><code class="language-sh">serve-md testdata/markdown`,
+		`<pre><code class="language-sh">servef testdata/markdown`,
 		`href="/view?path=reference%2Ftopics%2Fsearch.md"`,
 	)
 
@@ -218,9 +218,9 @@ func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), strings.Join([]string{
 		"# Install Guide",
 		"Read the **setup instructions** and [reference](https://example.com).",
-		"Use `serve-md`.",
+		"Use `servef`.",
 		"```sh",
-		"serve-md docs",
+		"servef docs",
 		"```",
 		"<script>hiddenMarkup()</script>",
 	}, "\n\n"))
@@ -248,7 +248,7 @@ func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 	if document.Path != "docs/Guide.md" || document.Name != "Guide.md" {
 		t.Fatalf("document identity = %#v", document)
 	}
-	assertContains(t, document.Content, "Install Guide", "setup instructions", "reference", "serve-md", "serve-md docs", "hiddenMarkup")
+	assertContains(t, document.Content, "Install Guide", "setup instructions", "reference", "servef", "servef docs", "hiddenMarkup")
 	for _, unwanted := range []string{"https://example.com", "**", "```", root} {
 		if strings.Contains(document.Content, unwanted) {
 			t.Errorf("search content contains %q: %s", unwanted, document.Content)

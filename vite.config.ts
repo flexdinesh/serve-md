@@ -15,7 +15,7 @@ import {
 } from "./internal/web/dev-server.ts"
 
 const devServerBanner: Plugin = {
-  name: "serve-md-dev-server-banner",
+  name: "servef-dev-server-banner",
   configureServer(server) {
     server.printUrls = () => {
       const address = server.httpServer?.address()
@@ -60,7 +60,7 @@ async function listFiles(directory: string, relativeDirectory = ""): Promise<str
 }
 
 const excalidrawFonts: Plugin = {
-  name: "serve-md-excalidraw-fonts",
+  name: "servef-excalidraw-fonts",
   apply: "build",
   async generateBundle() {
     for (const relativePath of await listFiles(excalidrawFontsDirectory)) {
@@ -92,8 +92,8 @@ export default defineConfig(({ command }) => ({
     open: shouldOpenBrowser(process.env),
     proxy: {
       "/assets/excalidraw":
-        process.env.SERVE_MD_API_TARGET || "http://127.0.0.1:8080",
-      "/api": process.env.SERVE_MD_API_TARGET || "http://127.0.0.1:8080",
+        process.env.SERVEF_API_TARGET || "http://127.0.0.1:8080",
+      "/api": process.env.SERVEF_API_TARGET || "http://127.0.0.1:8080",
     },
   },
 }))

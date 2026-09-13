@@ -1,6 +1,6 @@
 # Local binaries
-/serve-md
-/serve-md.exe
+/servef
+/servef.exe
 /bin/
 /node_modules/
 /playwright-report/

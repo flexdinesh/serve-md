@@ -98,7 +98,7 @@ export function App() {
   const loadError = result?.kind === "failure" ? result.message : ""
 
   useEffect(() => {
-    document.title = `${page.selected ? `${page.selected} · ` : ""}serve-md`
+    document.title = `${page.selected ? `${page.selected} · ` : ""}servef`
   }, [page.selected])
 
   return (
@@ -109,9 +109,9 @@ export function App() {
       </div>
       <header className="app-header">
         <div className="app-identity">
-          <Link className="brand" to="/" search={{}} aria-label="serve-md home">
+          <Link className="brand" to="/" search={{}} aria-label="servef home">
             <span className="brand-mark" aria-hidden="true">M</span>
-            <span>serve-md</span>
+            <span>servef</span>
           </Link>
           {page.rootName && <span className="root-name" title={page.rootName}>{page.rootName}</span>}
         </div>

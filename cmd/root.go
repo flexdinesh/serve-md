@@ -1,4 +1,4 @@
-// Package cmd defines the serve-md command-line interface.
+// Package cmd defines the servef command-line interface.
 package cmd
 
 import (
@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/flexdinesh/serve-md/internal/browser"
-	"github.com/flexdinesh/serve-md/internal/features"
-	"github.com/flexdinesh/serve-md/internal/files"
-	webui "github.com/flexdinesh/serve-md/internal/web"
+	"github.com/flexdinesh/servef/internal/browser"
+	"github.com/flexdinesh/servef/internal/features"
+	"github.com/flexdinesh/servef/internal/files"
+	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +46,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	var opts options
 	var featureNames []string
 	command := &cobra.Command{
-		Use:           "serve-md [path]",
+		Use:           "servef [path]",
 		Short:         "Browse local Markdown files in a web browser",
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
