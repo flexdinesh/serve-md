@@ -1,7 +1,7 @@
 export const THEME_STORAGE_KEY = "servef-theme"
 
-export type Theme = "light" | "dark" | "system"
-export type ResolvedTheme = Exclude<Theme, "system">
+export type Theme = "system" | "light" | "dark" | "gruvbox-dark" | "catppuccin-mocha" | "nord" | "solarized-light"
+export type ResolvedTheme = "light" | "dark"
 
 export interface ThemeSnapshot {
   theme: Theme
@@ -9,7 +9,13 @@ export interface ThemeSnapshot {
 }
 
 export function isTheme(value: unknown): value is Theme {
-  return value === "light" || value === "dark" || value === "system"
+  return value === "system"
+    || value === "light"
+    || value === "dark"
+    || value === "gruvbox-dark"
+    || value === "catppuccin-mocha"
+    || value === "nord"
+    || value === "solarized-light"
 }
 
 function isResolvedTheme(value: unknown): value is ResolvedTheme {
@@ -22,7 +28,8 @@ export function parseTheme(value: string | null): Theme {
 
 export function resolveTheme(theme: Theme, prefersDark: boolean): ResolvedTheme {
   if (theme === "system") return prefersDark ? "dark" : "light"
-  return theme
+  if (theme === "light" || theme === "solarized-light") return "light"
+  return "dark"
 }
 
 export function readStoredTheme(): Theme {
@@ -68,9 +75,14 @@ export function applyResolvedTheme(resolvedTheme: ResolvedTheme): void {
   }
 }
 
+export function applyTheme(theme: Theme, resolvedTheme: ResolvedTheme): void {
+  document.documentElement.dataset.theme = theme
+  applyResolvedTheme(resolvedTheme)
+}
+
 export function initializeTheme(): ThemeSnapshot {
   const theme = readStoredTheme()
   const resolvedTheme = resolveTheme(theme, window.matchMedia("(prefers-color-scheme: dark)").matches)
-  applyResolvedTheme(resolvedTheme)
+  applyTheme(theme, resolvedTheme)
   return { theme, resolvedTheme }
 }

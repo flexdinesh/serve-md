@@ -66,7 +66,7 @@ Use only semantic tokens:
 - `--color-destructive`, `--color-destructive-subtle`: failures and destructive actions
 - `--color-overlay`: modal backdrop only
 
-Light and dark modes use the same roles. The theme control offers Light, Dark, and System. Explicit choices apply `light` or `dark` to the root element; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with the resolved theme. Never branch component styling into unrelated dark variants.
+All themes use the same roles. The control offers Light, Dark, System, and named editor palettes. Each palette declares light/dark polarity; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with resolved polarity. Never branch component styling into unrelated dark variants.
 
 Accent is functional, not decorative. Use it for navigation selection, links, focus, and primary action emphasis. Do not use it on large surfaces or routine headings.
 
@@ -117,12 +117,12 @@ Custom spacing is acceptable only for optical alignment, intrinsic media sizing,
 
 ## Layout
 
-- App structure: 56px header above an 18rem sidebar and flexible document pane.
+- App structure: 40px header above a full-height workspace with a resizable 13–30rem sidebar, 28px tab bar, flexible document pane, and 24px status line.
 - Reading measure: `--reading-width` (50rem) maximum, centered in the document pane.
 - Desktop gutters: fluid 24–48px around the reading column.
 - Mobile gutters: 16px.
 - Search overlay: maximum 42rem wide and 40rem tall; it never touches viewport edges.
-- The sidebar owns navigation scroll on desktop. The document owns page scroll.
+- The sidebar and document own independent scrolling on desktop.
 - Align document headings, prose, tables, diagrams, alerts, and empty states to the same reading column.
 - Do not independently center elements that belong to the reading grid.
 
@@ -168,9 +168,19 @@ Cards are exceptional, not the default container. Use them only for a repeated, 
 
 The file tree stays compact and visually secondary to the document. Folder disclosure uses native semantics. Hover changes surface and text contrast. The selected file uses a full-width rectangular row with square corners, accent text, subtle accent fill, a 2px leading indicator, weight 600, and `aria-current="page"`.
 
+The sidebar width is keyboard- and pointer-adjustable on desktop and persists locally. Double-clicking its separator restores the default width. On mobile the separator disappears and the tree/document split remains fixed.
+
+### Document tabs
+
+Visited documents remain in a 28px tab bar. Tabs show file names and expose full paths as titles. The active tab shares the document surface and has a 2px accent edge. Closing the active tab selects its nearest neighbour; closing the last returns to the empty state. The URL remains authoritative, preserving deep links and browser history.
+
+### Status line
+
+The 24px monospace status line reports readiness, active path, file size, workspace file count, and supported process metrics. It removes path, size, and metric labels at the mobile breakpoint before values. Metrics polling pauses while the page is hidden.
+
 ### Theme control
 
-Use a shadcn-style icon trigger in the header next to Search. Its dropdown presents Light, Dark, and System as a single-choice group and marks the configured choice. The trigger reflects the resolved light/dark appearance and has an accessible label that names the configured theme. The menu and trigger use shared control, surface, border, focus, and typography tokens.
+Use a shadcn-style icon trigger in the header next to Search. Its dropdown presents system, base, and named editor themes as a single-choice group and marks the configured choice. The trigger reflects resolved polarity and has an accessible label naming the configured theme. The menu and trigger use shared control, surface, border, focus, and typography tokens.
 
 ### Overlays and modals
 
@@ -197,10 +207,10 @@ Rendered content shares one prose system for headings, paragraphs, lists, quotes
 
 ## Responsive design
 
-At 48rem and below, replace columns with a vertical sequence: header, bounded tree, document. The tree gets at most 38% of the dynamic viewport so document content remains visible and the relationship between navigation and reading is preserved.
+At 48rem and below, replace columns with a fixed viewport split: header, tree at 38%, then the tabbed document workspace at 62%. The sidebar resizer disappears.
 
 - Preserve file-tree order before document content.
-- Increase compact tree rows from 32px to 40px.
+- Keep compact tree rows at least 40px.
 - Keep 16px mobile gutters and at least 40px controls.
 - Collapse secondary button labels and keyboard hints before hiding primary actions.
 - Let wide code, tables, and diagrams scroll inside their own bounds.

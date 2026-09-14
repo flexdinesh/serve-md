@@ -4,7 +4,14 @@ import {
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 import { Button } from "@/components/ui/button"
 
@@ -19,6 +26,27 @@ import {
   type PageLoadResult,
 } from "./page-data.ts"
 import { SearchDialog } from "./SearchDialog.tsx"
+import { StatusBar } from "./StatusBar.tsx"
+import { TabBar } from "./TabBar.tsx"
+import { useProcessMetrics } from "./process-metrics.ts"
+
+const DEFAULT_SIDEBAR_WIDTH = 288
+const MIN_SIDEBAR_WIDTH = 208
+const MAX_SIDEBAR_WIDTH = 480
+const SIDEBAR_STORAGE_KEY = "servef-sidebar-width"
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width))
+}
+
+function readSidebarWidth(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(SIDEBAR_STORAGE_KEY))
+    return Number.isFinite(stored) && stored > 0 ? clampSidebarWidth(stored) : DEFAULT_SIDEBAR_WIDTH
+  } catch {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+}
 
 function initialPage(result: PageLoadResult): PageData | null {
   return result.kind === "page" ? result.page : null
@@ -40,14 +68,27 @@ export function App() {
   const main = useRef<HTMLElement>(null)
   const openSearch = useRef<() => void>(() => {})
   const focusDocument = useRef(false)
+  const scrollPositions = useRef(new Map<string, number>())
+  const resizeStart = useRef<{ pointerID: number, width: number, x: number } | null>(null)
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
+  const [openTabs, setOpenTabs] = useState<string[]>(() => {
+    const selected = result ? initialPage(result)?.selected : undefined
+    return selected ? [selected] : []
+  })
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(
     () => new Set(openDirectoryPaths(result ? initialPage(result)?.tree ?? [] : [])),
   )
+  const metrics = useProcessMetrics()
 
   useEffect(() => {
     if (!result || result.kind !== "page") return
     setLastPage(result.page)
+    if (result.page.hasFile && result.page.selected) {
+      setOpenTabs((current) => current.includes(result.page.selected)
+        ? current
+        : [...current, result.page.selected])
+    }
     const pathsToOpen = openDirectoryPaths(result.page.tree)
     if (pathsToOpen.length === 0) return
     setExpandedPaths((current) => {
@@ -64,24 +105,50 @@ export function App() {
   }, [result])
 
   useEffect(() => {
-    if (isLoading || !focusDocument.current) return
-    focusDocument.current = false
-    main.current?.focus({ preventScroll: true })
+    if (isLoading || !result || result.kind !== "page") return
+    if (focusDocument.current) {
+      focusDocument.current = false
+      main.current?.focus({ preventScroll: true })
+    }
+    const frame = window.requestAnimationFrame(() => {
+      if (main.current) main.current.scrollTop = scrollPositions.current.get(result.page.selected) ?? 0
+    })
+    return () => { window.cancelAnimationFrame(frame) }
   }, [isLoading, result])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sidebar-width", `${sidebarWidth}px`)
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth))
+    } catch {
+      // Resizing still applies when storage is unavailable.
+    }
+  }, [sidebarWidth])
 
   const registerSearch = useCallback((open: (() => void) | null) => {
     openSearch.current = open ?? (() => {})
   }, [])
 
-  const navigateToDocument = useCallback((path: string) => {
+  const saveDocumentScroll = useCallback(() => {
+    if (lastPage?.selected && main.current) {
+      scrollPositions.current.set(lastPage.selected, main.current.scrollTop)
+    }
+  }, [lastPage])
+
+  const prepareDocumentNavigation = useCallback(() => {
+    saveDocumentScroll()
     focusDocument.current = true
+  }, [saveDocumentScroll])
+
+  const navigateToDocument = useCallback((path: string) => {
+    prepareDocumentNavigation()
     void navigate({ to: "/view", search: { path }, hash: "" })
-  }, [navigate])
+  }, [navigate, prepareDocumentNavigation])
 
   const navigateToHref = useCallback((href: string) => {
-    focusDocument.current = true
+    prepareDocumentNavigation()
     void navigate({ href })
-  }, [navigate])
+  }, [navigate, prepareDocumentNavigation])
 
   const updateExpanded = useCallback((path: string, expanded: boolean) => {
     setExpandedPaths((current) => {
@@ -96,6 +163,41 @@ export function App() {
   const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
   const hasData = result?.kind === "page" || lastPage !== null
   const loadError = result?.kind === "failure" ? result.message : ""
+
+  const closeTab = useCallback((path: string) => {
+    const index = openTabs.indexOf(path)
+    if (index < 0) return
+    const remaining = openTabs.filter((tab) => tab !== path)
+    setOpenTabs(remaining)
+    scrollPositions.current.delete(path)
+    if (page.selected !== path) return
+
+    focusDocument.current = true
+    const replacement = remaining[Math.min(index, remaining.length - 1)]
+    if (replacement) {
+      void navigate({ to: "/view", search: { path: replacement }, hash: "" })
+    } else {
+      void navigate({ to: "/", search: {}, hash: "" })
+    }
+  }, [navigate, openTabs, page.selected])
+
+  const handleResizeMove = (event: PointerEvent<HTMLDivElement>) => {
+    const start = resizeStart.current
+    if (!start || start.pointerID !== event.pointerId) return
+    setSidebarWidth(clampSidebarWidth(start.width + event.clientX - start.x))
+  }
+
+  const stopResize = (event: PointerEvent<HTMLDivElement>) => {
+    if (resizeStart.current?.pointerID !== event.pointerId) return
+    resizeStart.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const resizeWithKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+    event.preventDefault()
+    setSidebarWidth((width) => clampSidebarWidth(width + (event.key === "ArrowLeft" ? -16 : 16)))
+  }
 
   useEffect(() => {
     document.title = `${page.selected ? `${page.selected} · ` : ""}servef`
@@ -138,17 +240,46 @@ export function App() {
           expandedPaths={expandedPaths}
           hasData={hasData}
           onExpandedChange={updateExpanded}
+          onNavigate={prepareDocumentNavigation}
           page={page}
         />
-        <DocumentPane
-          hasData={hasData}
-          isLoading={isLoading}
-          loadError={loadError}
-          main={main}
-          navigate={navigateToHref}
-          page={page}
-          retry={() => { void router.invalidate() }}
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-label="Resize file tree"
+          aria-orientation="vertical"
+          aria-valuemin={MIN_SIDEBAR_WIDTH}
+          aria-valuemax={MAX_SIDEBAR_WIDTH}
+          aria-valuenow={sidebarWidth}
+          tabIndex={0}
+          onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+          onKeyDown={resizeWithKeyboard}
+          onPointerDown={(event) => {
+            resizeStart.current = { pointerID: event.pointerId, width: sidebarWidth, x: event.clientX }
+            event.currentTarget.setPointerCapture(event.pointerId)
+          }}
+          onPointerMove={handleResizeMove}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
         />
+        <section className="workspace" aria-label="Document workspace">
+          <TabBar
+            activePath={page.selected}
+            tabs={openTabs}
+            onClose={closeTab}
+            onSelect={navigateToDocument}
+          />
+          <DocumentPane
+            hasData={hasData}
+            isLoading={isLoading}
+            loadError={loadError}
+            main={main}
+            navigate={navigateToHref}
+            page={page}
+            retry={() => { void router.invalidate() }}
+          />
+          <StatusBar isLoading={isLoading} metrics={metrics} page={page} />
+        </section>
       </div>
       <SearchDialog navigate={navigateToDocument} registerOpen={registerSearch} />
     </>
