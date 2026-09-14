@@ -247,12 +247,20 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
 })
 
 test("renders every Mermaid fixture with default Excalidraw", async ({ page }) => {
+  const cspFailures: string[] = []
   const fontResponses: number[] = []
+  const remoteFontRequests: string[] = []
+  page.on("request", (request) => {
+    if (request.url().startsWith("https://esm.sh/")) remoteFontRequests.push(request.url())
+  })
+  page.on("requestfailed", (request) => {
+    if (request.failure()?.errorText === "csp") cspFailures.push(request.url())
+  })
   page.on("response", (response) => {
     const url = new URL(response.url())
     if (url.pathname.startsWith("/assets/excalidraw/fonts/")) fontResponses.push(response.status())
   })
-  await page.goto("/view?path=guides%2Fdiagrams.md")
+  await page.goto("http://127.0.0.1:18080/view?path=guides%2Fdiagrams.md")
   await revealMermaidCases(page)
 
   await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
@@ -262,6 +270,8 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
   await expect(page.locator("main .mermaid-excalidraw .zoom-actions").first()).toBeHidden()
   await expect(page.locator("main .tl-container")).toHaveCount(0)
   await expect.poll(() => fontResponses.some((status) => status === 200)).toBe(true)
+  expect(cspFailures).toEqual([])
+  expect(remoteFontRequests).toEqual([])
 
   const canvas = page.locator("main .mermaid-excalidraw canvas").first()
   await canvas.scrollIntoViewIfNeeded()

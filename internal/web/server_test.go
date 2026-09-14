@@ -363,7 +363,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 		t.Fatal("Mermaid chunk not found")
 	}
 	csp := shell.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
+	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}
