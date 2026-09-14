@@ -7,9 +7,10 @@ interface TreeNodesProps {
   expandedPaths: ReadonlySet<string>
   nodes: readonly TreeNode[]
   onExpandedChange(path: string, expanded: boolean): void
+  onNavigate(): void
 }
 
-function TreeNodes({ expandedPaths, nodes, onExpandedChange }: TreeNodesProps) {
+function TreeNodes({ expandedPaths, nodes, onExpandedChange, onNavigate }: TreeNodesProps) {
   return nodes.map((node) => (
     <li key={node.path}>
       {node.isDir ? (
@@ -26,6 +27,7 @@ function TreeNodes({ expandedPaths, nodes, onExpandedChange }: TreeNodesProps) {
               expandedPaths={expandedPaths}
               nodes={node.children}
               onExpandedChange={onExpandedChange}
+              onNavigate={onNavigate}
             />
           </ul>
         </details>
@@ -36,6 +38,9 @@ function TreeNodes({ expandedPaths, nodes, onExpandedChange }: TreeNodesProps) {
           to="/view"
           search={{ path: node.path }}
           hash=""
+          onClick={(event) => {
+            if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) onNavigate()
+          }}
         >
           <SquareMIcon aria-hidden="true" />
           {node.name}
@@ -49,10 +54,11 @@ interface FileTreeProps {
   expandedPaths: ReadonlySet<string>
   hasData: boolean
   onExpandedChange(path: string, expanded: boolean): void
+  onNavigate(): void
   page: PageData
 }
 
-export function FileTree({ expandedPaths, hasData, onExpandedChange, page }: FileTreeProps) {
+export function FileTree({ expandedPaths, hasData, onExpandedChange, onNavigate, page }: FileTreeProps) {
   return (
     <aside aria-label="Markdown files" data-scroll-restoration-id="file-tree">
       <div className="tree-title">Files</div>
@@ -66,6 +72,7 @@ export function FileTree({ expandedPaths, hasData, onExpandedChange, page }: Fil
             expandedPaths={expandedPaths}
             nodes={page.tree}
             onExpandedChange={onExpandedChange}
+            onNavigate={onNavigate}
           />
         </ul>
       )}

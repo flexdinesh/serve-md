@@ -1,4 +1,4 @@
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
+import { MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lucide-react"
 
 import { isTheme, type Theme } from "../theme.ts"
 import { useTheme } from "./ThemeProvider.tsx"
@@ -20,6 +20,10 @@ interface ThemeOption {
 const themeOptions: readonly ThemeOption[] = [
   { icon: SunIcon, label: "Light", value: "light" },
   { icon: MoonIcon, label: "Dark", value: "dark" },
+  { icon: PaletteIcon, label: "Catppuccin Mocha", value: "catppuccin-mocha" },
+  { icon: PaletteIcon, label: "Gruvbox Dark", value: "gruvbox-dark" },
+  { icon: PaletteIcon, label: "Nord", value: "nord" },
+  { icon: PaletteIcon, label: "Solarized Light", value: "solarized-light" },
   { icon: MonitorIcon, label: "System", value: "system" },
 ]
 
@@ -36,7 +40,7 @@ export function ModeToggle() {
             className="theme-trigger"
             type="button"
             variant="outline"
-            size="icon"
+            size="icon-sm"
             aria-label={`Theme: ${themeLabel}`}
           >
             <ResolvedIcon aria-hidden="true" />

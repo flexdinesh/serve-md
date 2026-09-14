@@ -11,6 +11,8 @@ export interface PageData {
   content: string
   empty: boolean
   error: string
+  fileCount: number
+  fileSize: number
   hasFile: boolean
   rootName: string
   selected: string
@@ -26,6 +28,8 @@ export const emptyPage: PageData = {
   content: "",
   empty: false,
   error: "",
+  fileCount: 0,
+  fileSize: 0,
   hasFile: false,
   rootName: "",
   selected: "",
@@ -53,6 +57,8 @@ function isPageData(value: unknown): value is PageData {
     && typeof value.content === "string"
     && typeof value.empty === "boolean"
     && typeof value.error === "string"
+    && typeof value.fileCount === "number"
+    && typeof value.fileSize === "number"
     && typeof value.hasFile === "boolean"
     && typeof value.rootName === "string"
     && typeof value.selected === "string"

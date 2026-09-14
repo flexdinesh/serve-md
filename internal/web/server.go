@@ -25,11 +25,12 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-//go:embed dist vendor/MINISEARCH-LICENSE.txt
+//go:embed dist vendor/MINISEARCH-LICENSE.txt vendor/PX0-LICENSE.txt
 var assets embed.FS
 
 var noticeAssets = map[string]string{
 	"/assets/vendor/MINISEARCH-LICENSE.txt": "vendor/MINISEARCH-LICENSE.txt",
+	"/assets/vendor/PX0-LICENSE.txt":        "vendor/PX0-LICENSE.txt",
 }
 
 // Config controls the live file scan performed for each request.
@@ -44,19 +45,22 @@ type Config struct {
 type App struct {
 	config   Config
 	markdown goldmark.Markdown
+	metrics  metricsCollector
 	readFile func(string) ([]byte, error)
 	shell    string
 }
 
 type pageData struct {
-	RootName string     `json:"rootName"`
-	Tree     []treeNode `json:"tree"`
-	Selected string     `json:"selected"`
-	Content  string     `json:"content"`
-	HasFile  bool       `json:"hasFile"`
-	Empty    bool       `json:"empty"`
-	Error    string     `json:"error"`
-	Warnings []string   `json:"warnings"`
+	RootName  string     `json:"rootName"`
+	Tree      []treeNode `json:"tree"`
+	Selected  string     `json:"selected"`
+	Content   string     `json:"content"`
+	FileSize  int64      `json:"fileSize"`
+	FileCount int        `json:"fileCount"`
+	HasFile   bool       `json:"hasFile"`
+	Empty     bool       `json:"empty"`
+	Error     string     `json:"error"`
+	Warnings  []string   `json:"warnings"`
 }
 
 type treeNode struct {
@@ -121,6 +125,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/features" {
 		a.serveFeatures(w)
+		return
+	}
+	if r.URL.Path == "/api/metrics" {
+		a.serveMetrics(w)
 		return
 	}
 	if r.URL.Path == "/api/page" {
@@ -203,6 +211,12 @@ func (a *App) serveFeatures(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, a.config.Features.BrowserData())
+}
+
+func (a *App) serveMetrics(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, a.metrics.sample())
 }
 
 func (a *App) serveSearchDocuments(w http.ResponseWriter) {
@@ -302,10 +316,11 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		RootName: filepath.Base(index.RootPath()),
-		Selected: selected,
-		Empty:    len(index.Files) == 0,
-		Warnings: warningStrings(index.Warnings),
+		RootName:  filepath.Base(index.RootPath()),
+		Selected:  selected,
+		FileCount: len(index.Files),
+		Empty:     len(index.Files) == 0,
+		Warnings:  warningStrings(index.Warnings),
 	}
 	data.Tree = makeTree(index.Tree.Children, selected)
 	if required && selected == "" {
@@ -334,6 +349,7 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			return data, http.StatusInternalServerError
 		}
 		data.Content = rendered.String() // Goldmark escapes raw HTML via escapedHTMLRenderer.
+		data.FileSize = int64(len(source))
 		data.HasFile = true
 	}
 	return data, http.StatusOK

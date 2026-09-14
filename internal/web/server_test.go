@@ -26,6 +26,9 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
+	if got, want := landingData.FileCount, 5; got != want {
+		t.Fatalf("file count = %d, want %d", got, want)
+	}
 	assertContains(t, landing.Body.String(), "README.md", "getting-started.md", "api.markdown", "search.md")
 	for _, excluded := range []string{"notes.txt", "vendor", "ignored.md"} {
 		if strings.Contains(landing.Body.String(), excluded) {
@@ -43,6 +46,9 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		`<pre><code class="language-sh">servef testdata/markdown`,
 		`href="/view?path=reference%2Ftopics%2Fsearch.md"`,
 	)
+	if guideData.FileSize == 0 {
+		t.Fatal("guide file size is zero")
+	}
 
 	diagrams, diagramsData := requestPageData(t, app, "/api/page?path=guides%2Fdiagrams.md")
 	if diagrams.Code != http.StatusOK {
@@ -82,6 +88,23 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	}
 	if !foundSearchFixture {
 		t.Fatal("nested search fixture missing from search documents")
+	}
+}
+
+func TestAppServesProcessMetrics(t *testing.T) {
+	response := request(t, newTestApp(t, t.TempDir()), "/api/metrics")
+	if response.Code != http.StatusOK {
+		t.Fatalf("metrics status = %d, want %d", response.Code, http.StatusOK)
+	}
+	var metrics processMetrics
+	if err := json.Unmarshal(response.Body.Bytes(), &metrics); err != nil {
+		t.Fatal(err)
+	}
+	if metrics.Goroutines < 1 {
+		t.Fatalf("goroutines = %d, want positive", metrics.Goroutines)
+	}
+	if metrics.Supported && metrics.RSSBytes == 0 {
+		t.Fatal("supported metrics report zero RSS")
 	}
 }
 
@@ -362,6 +385,11 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	if !foundMermaidChunk {
 		t.Fatal("Mermaid chunk not found")
 	}
+	px0License := request(t, app, "/assets/vendor/PX0-LICENSE.txt")
+	if px0License.Code != http.StatusOK {
+		t.Fatalf("GET px0 license status = %d, want %d", px0License.Code, http.StatusOK)
+	}
+	assertContains(t, px0License.Body.String(), "MIT License", "Arpit Bhayani")
 	csp := shell.Header().Get("Content-Security-Policy")
 	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {

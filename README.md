@@ -5,7 +5,10 @@ Serve and browse Markdown files from a local directory.
 ## Features
 
 - Render Markdown content
-- Navigate files in a tree
+- Navigate files in a compact, resizable tree
+- Keep visited documents in an editor-style tab bar
+- Show document details and supported process CPU/RAM in a status line
+- Switch between system, light, dark, and editor palettes
 - Render Mermaid diagrams with Excalidraw
 
 ## Install

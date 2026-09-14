@@ -9,7 +9,7 @@ import {
 } from "react"
 
 import {
-  applyResolvedTheme,
+  applyTheme as applyDocumentTheme,
   initializeTheme,
   resolveTheme,
   storeTheme,
@@ -38,7 +38,7 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
   const applyTheme = useCallback((nextTheme: Theme, prefersDark: boolean) => {
     const nextResolvedTheme = resolveTheme(nextTheme, prefersDark)
     setResolvedTheme(nextResolvedTheme)
-    applyResolvedTheme(nextResolvedTheme)
+    applyDocumentTheme(nextTheme, nextResolvedTheme)
   }, [])
 
   useEffect(() => {

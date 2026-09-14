@@ -207,7 +207,7 @@ test("selects and persists an explicit theme", async ({ page }) => {
 
   const theme = page.getByRole("button", { name: "Theme: System" })
   await theme.press("Enter")
-  const dark = page.getByRole("menuitemradio", { name: "Dark" })
+  const dark = page.getByRole("menuitemradio", { name: "Dark", exact: true })
   await expect(dark).toBeVisible()
   await dark.click()
 
@@ -220,7 +220,7 @@ test("selects and persists an explicit theme", async ({ page }) => {
   await expect(page.locator("html")).toHaveClass(/dark/)
 
   await page.getByRole("button", { name: "Theme: Dark" }).click()
-  await page.getByRole("menuitemradio", { name: "Light" }).click()
+  await page.getByRole("menuitemradio", { name: "Light", exact: true }).click()
   await expect(page.locator("html")).toHaveClass(/light/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(247, 248, 250)")
 })
@@ -242,8 +242,60 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
   const tree = page.getByRole("complementary", { name: "Markdown files" })
   const selected = tree.getByRole("link", { name: "getting-started.md" })
   await expect(page.locator("article")).toHaveCSS("font-size", "16px")
-  await expect(selected).toHaveCSS("font-size", "14px")
+  await expect(selected).toHaveCSS("font-size", "13px")
   await expect(selected).toHaveCSS("border-radius", "0px")
+})
+
+test("opens, switches, and closes document tabs", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  await tree.getByRole("link", { name: "diagrams.md" }).click()
+
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
+  await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
+
+  await tabs.getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(page).toHaveURL(/path=guides%2Fgetting-started\.md/)
+  await tabs.getByRole("button", { name: "Close guides/getting-started.md" }).click()
+
+  await expect(page).toHaveURL(/path=guides%2Fdiagrams\.md/)
+  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toHaveCount(0)
+  await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
+})
+
+test("shows document metadata and process metrics in the status line", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const status = page.locator(".status-bar")
+  await expect(status).toContainText("guides/getting-started.md")
+  await expect(status).toContainText("5 files")
+  if (process.platform === "linux") await expect(status).toContainText("RAM")
+})
+
+test("resizes and persists the file tree", async ({ page }) => {
+  await page.goto("/")
+
+  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const resizer = page.getByRole("separator", { name: "Resize file tree" })
+  const initialWidth = await tree.evaluate((element) => element.getBoundingClientRect().width)
+  await resizer.press("ArrowRight")
+  await expect.poll(() => tree.evaluate((element) => element.getBoundingClientRect().width)).toBe(initialWidth + 16)
+
+  await page.reload()
+  await expect.poll(() => tree.evaluate((element) => element.getBoundingClientRect().width)).toBe(initialWidth + 16)
+})
+
+test("applies an editor palette while preserving dark rendering", async ({ page }) => {
+  await page.goto("/")
+
+  await page.getByRole("button", { name: "Theme: System" }).click()
+  await page.getByRole("menuitemradio", { name: "Gruvbox Dark" }).click()
+
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox-dark")
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(29, 32, 33)")
 })
 
 test("renders every Mermaid fixture with default Excalidraw", async ({ page }) => {

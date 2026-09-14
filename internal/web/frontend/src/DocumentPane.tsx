@@ -17,7 +17,7 @@ interface DocumentPaneProps {
 
 export function DocumentPane({ hasData, isLoading, loadError, main, navigate, page, retry }: DocumentPaneProps) {
   return (
-    <main ref={main} tabIndex={-1} aria-busy={isLoading}>
+    <main id="document-pane" ref={main} tabIndex={-1} aria-busy={isLoading}>
       {loadError ? (
         <div className="error" role="alert">
           <p>{loadError}</p>
