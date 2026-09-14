@@ -24,7 +24,7 @@ void test('generates a servef Homebrew formula from all release checksums', asyn
 
   assert.match(formula, /class Servef < Formula/)
   assert.match(formula, /homepage "https:\/\/github\.com\/flexdinesh\/servef"/)
-  assert.match(formula, /version "0\.1\.0"/)
+  assert.doesNotMatch(formula, /^\s*version\s/m)
   assert.match(formula, /license "MIT"/)
   assert.match(
     formula,
@@ -74,7 +74,10 @@ void test('accepts a forwarded pnpm argument separator', async (t) => {
 
   await runGenerator(workspace, ['--'])
 
-  assert.match(await readFile(workspace.outputPath, 'utf8'), /version "0\.1\.0"/)
+  assert.match(
+    await readFile(workspace.outputPath, 'utf8'),
+    /releases\/download\/v0\.1\.0\/servef_0\.1\.0_darwin_amd64\.tar\.gz/,
+  )
 })
 
 void test('generates a formula with valid Ruby syntax', async (t) => {

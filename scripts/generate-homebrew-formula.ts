@@ -106,7 +106,6 @@ async function generateFormula({ version, tag, checksums }: FormulaOptions): Pro
   return `class Servef < Formula
   desc "${desc}"
   homepage "${homepage}"
-  version "${version}"
   license "${license}"
 
   on_macos do
