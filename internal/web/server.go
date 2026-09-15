@@ -96,7 +96,10 @@ func New(config Config) (*App, error) {
 
 	md := goldmark.New(
 		goldmark.WithExtensions(extension.GFM),
-		goldmark.WithRendererOptions(renderer.WithNodeRenderers(util.Prioritized(&escapedHTMLRenderer{}, 500))),
+		goldmark.WithRendererOptions(renderer.WithNodeRenderers(
+			util.Prioritized(&escapedHTMLRenderer{}, 500),
+			util.Prioritized(newFencedCodeRenderer(), 500),
+		)),
 	)
 	return &App{config: config, markdown: md, readFile: os.ReadFile, shell: string(shell)}, nil
 }

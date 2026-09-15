@@ -43,7 +43,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	assertContains(t, guideData.Content,
 		"<h1>Getting started</h1>",
 		"<table>",
-		`<pre><code class="language-sh">servef testdata/markdown`,
+		`<pre><code class="language-sh syntax-highlight">servef testdata/markdown`,
 		`href="/view?path=reference%2Ftopics%2Fsearch.md"`,
 	)
 	if guideData.FileSize == 0 {
@@ -203,7 +203,7 @@ func TestAppDefaultsFeaturesDisabled(t *testing.T) {
 	}
 }
 
-func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
+func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "diagrams.md"), strings.Join([]string{
 		"```mermaid",
@@ -213,6 +213,14 @@ func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
 		"",
 		"```go",
 		`fmt.Println("<ordinary> & code")`,
+		"```",
+		"",
+		"```unknown-language",
+		`<unknown> & code`,
+		"```",
+		"",
+		"```",
+		`<plain> & code`,
 		"```",
 	}, "\n"))
 	app := newTestApp(t, root)
@@ -224,7 +232,11 @@ func TestAppPreservesEscapedMermaidAndOrdinaryCode(t *testing.T) {
 	assertContains(t, body,
 		"<pre><code class=\"language-mermaid\">flowchart LR\n",
 		`A[&quot;&lt;script&gt;alert('no')&lt;/script&gt; &amp; text&quot;] --&gt; B`,
-		`<pre><code class="language-go">fmt.Println(&quot;&lt;ordinary&gt; &amp; code&quot;)`,
+		`<pre><code class="language-go syntax-highlight">`,
+		`<span class="syntax-nf">Println</span>`,
+		`<span class="syntax-s">&#34;&lt;ordinary&gt; &amp; code&#34;</span>`,
+		`<pre><code class="language-unknown-language">&lt;unknown&gt; &amp; code`,
+		`<pre><code>&lt;plain&gt; &amp; code`,
 	)
 	if strings.Contains(body, "<script>alert") {
 		t.Fatal("Mermaid source was rendered as raw HTML")

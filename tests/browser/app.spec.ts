@@ -246,6 +246,19 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
   await expect(selected).toHaveCSS("border-radius", "0px")
 })
 
+test("highlights fenced code with the selected theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.goto("/view?path=reference%2Fapi.markdown")
+
+  const keyword = page.locator(".syntax-highlight [class^='syntax-k']").first()
+  await expect(keyword).toHaveText("func")
+  await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
+
+  await page.getByRole("button", { name: "Theme: System" }).click()
+  await page.getByRole("menuitemradio", { name: "Nord" }).click()
+  await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
+})
+
 test("opens, switches, and closes document tabs", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
