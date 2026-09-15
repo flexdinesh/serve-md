@@ -1,0 +1,30 @@
+{
+  "rootName": "markdown",
+  "tree": [
+    {
+      "name": "guides",
+      "path": "guides",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "getting-started.md",
+          "path": "guides/getting-started.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "selected": "",
+  "content": "",
+  "fileSize": 0,
+  "fileCount": 1,
+  "hasFile": false,
+  "empty": false,
+  "error": "",
+  "warnings": []
+}

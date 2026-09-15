@@ -2,7 +2,7 @@
 
 This document is the visual constitution for `servef`. The interface exists to make a local Markdown tree easy to scan and a selected document comfortable to read. Product behavior and document content lead; the interface stays quiet.
 
-Implementation source of truth: `internal/web/frontend/src/style.css`. Tailwind theme variables define the shared visual primitives. Semantic classes define recurring product patterns and rendered Markdown, where utility classes are not practical.
+Implementation source of truth: `web/src/style.css`. Tailwind theme variables define the shared visual primitives. Semantic classes define recurring product patterns and rendered Markdown, where utility classes are not practical.
 
 ## Design direction
 
@@ -150,7 +150,7 @@ Prefer whitespace or a surface change before adding a border. Prefer a border be
 
 ## Components
 
-Shared primitives live in `internal/web/frontend/src/components/ui/`. Use shadcn as a local source-code registry, not as a separate visual system or runtime service. Review generated code before use: reduce variants to meaningful roles, map styles to this document's tokens, and enforce repository TypeScript rules.
+Shared primitives live in `web/src/components/ui/`. Use shadcn as a local source-code registry, not as a separate visual system or runtime service. Review generated code before use: reduce variants to meaningful roles, map styles to this document's tokens, and enforce repository TypeScript rules.
 
 ### Buttons
 

@@ -1,0 +1,10 @@
+{
+  "documents": [
+    {
+      "path": "guides/getting-started.md",
+      "name": "getting-started.md",
+      "content": "Getting started frontend-only fixture API"
+    }
+  ],
+  "warnings": []
+}

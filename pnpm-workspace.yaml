@@ -1,10 +1,18 @@
 packages:
-  - "."
+  - "web"
 
 engineStrict: true
+includeWorkspaceRoot: true
 
 # Three-day supply-chain cooling period.
 minimumReleaseAge: 4320
 
 allowBuilds:
   esbuild: true
+
+# tunnel-rat imports React without declaring it. Keep resolution explicit instead
+# of relying on the former root package's phantom dependency.
+packageExtensions:
+  tunnel-rat@0.1.2:
+    peerDependencies:
+      react: "*"

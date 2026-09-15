@@ -1,0 +1,57 @@
+# Architecture
+
+`servef` is one product implemented by two build-time projects and distributed
+as one Go binary.
+
+## System boundaries
+
+- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
+- `internal/files/`: Markdown discovery and safe path resolution.
+- `internal/features/`: startup feature configuration.
+- `internal/web/`: HTTP API, Markdown rendering, shell/static delivery, embedded assets.
+- `web/`: React UI, Vite build, frontend tests and development tooling.
+- `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
+- `testdata/api/`: transport scenarios for frontend-only development.
+- `tests/browser/`: browser tests across the Go/React boundary.
+
+The filesystem root passed to the CLI is the primary runtime trust boundary.
+The server indexes permitted Markdown paths and resolves requests only through
+that index. It currently binds all IPv4 interfaces, so adding mutations or
+sensitive state requires an explicit network/authentication decision.
+
+## Dependency direction
+
+```text
+CLI -> HTTP application -> files/features/metrics
+React -> HTTP API -> HTTP application
+web source -> Vite -> internal/web/dist -> go:embed -> servef binary
+```
+
+Go and pnpm retain their native dependency graphs. The repository-level
+`package.json` is a command facade; `web/package.json` owns browser dependencies.
+Add another Go module or pnpm package only for an independently consumed unit.
+
+## Development and tests
+
+- `pnpm dev`: Go over `testdata/markdown` plus Vite with API proxying.
+- `pnpm dev:mock`: Vite plus committed JSON fixtures; no Go process.
+- `go test ./...`: Go unit and HTTP integration behavior.
+- `pnpm test:web`: frontend logic and fixture-contract behavior.
+- `pnpm test:browser`: production bootstrap and end-to-end behavior.
+
+## Distribution
+
+Vite writes hashed assets to `internal/web/dist`. The generated directory is
+committed so `go install github.com/flexdinesh/servef@latest` needs no JavaScript
+toolchain. CI rebuilds it and fails if committed output is stale. Installed
+releases contain no Node.js runtime or frontend sidecar.
+
+## Growth rules
+
+1. Organize Go around capabilities before adding abstraction layers.
+2. Keep HTTP DTOs at the transport boundary; move document/search behavior out
+   of `internal/web` as those capabilities grow.
+3. Keep browser contracts runtime-validated. Introduce OpenAPI and generated
+   client types when manual contract maintenance becomes material.
+4. Create shared frontend packages only after a second consumer exists.
+5. Add task-graph caching only when multiple projects or CI timings justify it.
