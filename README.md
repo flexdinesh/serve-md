@@ -53,6 +53,12 @@ pnpm install
 pnpm dev
 ```
 
+Run only the frontend against committed API fixtures:
+
+```sh
+pnpm dev:mock
+```
+
 Run checks:
 
 ```sh

@@ -1,0 +1,30 @@
+{
+  "rootName": "markdown",
+  "tree": [
+    {
+      "name": "guides",
+      "path": "guides",
+      "isDir": true,
+      "open": true,
+      "selected": false,
+      "children": [
+        {
+          "name": "getting-started.md",
+          "path": "guides/getting-started.md",
+          "isDir": false,
+          "open": false,
+          "selected": true,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "selected": "guides/getting-started.md",
+  "content": "<h1>Getting started</h1><p>This page is served by the frontend-only fixture API.</p>",
+  "fileSize": 84,
+  "fileCount": 1,
+  "hasFile": true,
+  "empty": false,
+  "error": "",
+  "warnings": []
+}

@@ -12,10 +12,20 @@ pnpm install
 Start Go and Vite in parallel:
 
 ```sh
-pnpm run --parallel '/^dev:(server|web)$/'
+pnpm dev
 ```
 
 This uses Go port `8080` and Vite port `5173`. Stop it before starting the comparison setup below.
+
+Start Vite without Go, using the default API scenario under `testdata/api`:
+
+```sh
+pnpm dev:mock
+```
+
+Frontend source and dependencies live in the `web` workspace. Production builds
+still write to `internal/web/dist` because those committed files are embedded in
+the Go binary.
 
 ## Compare feature flags
 

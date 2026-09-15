@@ -3,6 +3,7 @@
 /servef.exe
 /bin/
 /node_modules/
+/web/node_modules/
 /playwright-report/
 /test-results/
 

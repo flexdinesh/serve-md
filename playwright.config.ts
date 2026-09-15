@@ -32,7 +32,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${tldrawApiPort}/api/features`,
     },
     {
-      command: `pnpm exec vite --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`,
+      command: `pnpm --filter @servef/web exec vite --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`,
       env: {
         ...process.env,
         SERVEF_API_TARGET: `http://127.0.0.1:${apiPort}`,
