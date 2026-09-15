@@ -148,6 +148,7 @@ export default defineConfig(({ command, mode }) => ({
   },
   root: fileURLToPath(new URL(".", import.meta.url)),
   server: {
+    allowedHosts: true,
     host: "0.0.0.0",
     open: shouldOpenBrowser(process.env),
     proxy: mode === "mock" ? undefined : {
