@@ -7,6 +7,7 @@ as one Go binary.
 
 - `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
 - `internal/files/`: Markdown discovery and safe path resolution.
+- `internal/control/`: authenticated discovery and shutdown of local servef processes.
 - `internal/features/`: startup feature configuration.
 - `internal/web/`: HTTP API, Markdown rendering, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
@@ -16,8 +17,8 @@ as one Go binary.
 
 The filesystem root passed to the CLI is the primary runtime trust boundary.
 The server indexes permitted Markdown paths and resolves requests only through
-that index. It currently binds all IPv4 interfaces, so adding mutations or
-sensitive state requires an explicit network/authentication decision.
+that index. It binds localhost by default and selects the first free port from
+7971 through 7980; exposing it requires an explicit `--host` IP address.
 
 ## Dependency direction
 

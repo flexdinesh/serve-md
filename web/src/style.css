@@ -433,7 +433,7 @@ kbd {
   display: grid;
   height: calc(100vh - var(--header-height));
   min-height: 0;
-  grid-template-columns: var(--sidebar-width) 4px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) 1px minmax(0, 1fr);
 }
 
 aside {
@@ -572,10 +572,16 @@ main {
 .sidebar-resizer {
   position: relative;
   z-index: 5;
-  width: 4px;
+  width: 1px;
   cursor: col-resize;
   background: var(--color-border);
   touch-action: none;
+}
+
+.sidebar-resizer::after {
+  position: absolute;
+  inset: 0 -3px;
+  content: "";
 }
 
 .sidebar-resizer:hover,
