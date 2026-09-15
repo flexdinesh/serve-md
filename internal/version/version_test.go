@@ -36,6 +36,14 @@ func TestStringFallsBackToTaggedGoInstallMetadata(t *testing.T) {
 	}
 }
 
+func TestNumberOmitsBuildMetadata(t *testing.T) {
+	setBuildMetadata(t, "0.1.0", "abc123", "2026-09-13T00:00:00Z", nil, false)
+
+	if got, want := Number(), "0.1.0"; got != want {
+		t.Fatalf("Number() = %q, want %q", got, want)
+	}
+}
+
 func setBuildMetadata(t *testing.T, version, commit, date string, info *debug.BuildInfo, ok bool) {
 	t.Helper()
 	oldVersion := Version

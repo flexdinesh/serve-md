@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/flexdinesh/servef/internal/browser"
+	"github.com/flexdinesh/servef/internal/control"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/version"
@@ -25,16 +26,21 @@ import (
 
 var defaultExclusions = []string{".git", "node_modules", "vendor"}
 
+const defaultHost = "localhost"
+
 type options struct {
 	path       string
 	depth      int
+	host       string
 	port       int
+	portSet    bool
 	noOpen     bool
 	exclusions []string
 	features   features.Set
+	controlDir string
 }
 
-type runner func(context.Context, options, io.Writer, io.Writer) error
+type runner func(context.Context, options, io.Reader, io.Writer, io.Writer) error
 
 // Execute runs the root command until the server exits or receives a signal.
 func Execute() error {
@@ -64,25 +70,30 @@ func newRootCommand(runCommand runner) *cobra.Command {
 			if opts.port < 0 || opts.port > 65535 {
 				return errors.New("--port must be between 0 and 65535")
 			}
+			if opts.host != defaultHost && net.ParseIP(opts.host) == nil {
+				return errors.New("--host must be a valid IP address")
+			}
+			opts.portSet = command.Flags().Changed("port")
 			parsedFeatures, err := features.Parse(featureNames)
 			if err != nil {
 				return err
 			}
 			opts.features = parsedFeatures
-			return runCommand(command.Context(), opts, command.OutOrStdout(), command.ErrOrStderr())
+			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
 	command.SetVersionTemplate("{{.Version}}\n")
 
 	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan")
-	command.Flags().IntVar(&opts.port, "port", 0, "local port; 0 selects a free port")
+	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
+	command.Flags().IntVar(&opts.port, "port", 0, "port; defaults to the first free port from 7971 to 7980")
 	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
 	command.Flags().StringArrayVar(&opts.exclusions, "exclude", nil, "add a directory name to exclude (repeatable)")
 	command.Flags().StringArrayVar(&featureNames, "feature", nil, "enable an experimental feature (repeatable)")
 	return command
 }
 
-func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
+func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.Writer) error {
 	root, err := filepath.Abs(opts.path)
 	if err != nil {
 		return fmt.Errorf("resolve %q: %w", opts.path, err)
@@ -90,7 +101,10 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 	exclusions := append(append([]string{}, defaultExclusions...), opts.exclusions...)
 
 	// Validate the root before binding a port or opening a browser.
-	if _, err := files.Scan(root, opts.depth, exclusions); err != nil {
+	discoveryStarted := time.Now()
+	index, err := files.Scan(root, opts.depth, exclusions)
+	discoveryDuration := time.Since(discoveryStarted)
+	if err != nil {
 		return err
 	}
 
@@ -98,13 +112,54 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
-	listener, err := listenTCP4(opts.port)
+	controlDir := opts.controlDir
+	if controlDir == "" {
+		controlDir, err = control.DefaultDirectory()
+		if err != nil {
+			return err
+		}
+	}
+	registry := control.NewRegistry(controlDir)
+	host := opts.host
+	if host == "" {
+		host = defaultHost
+	}
+	listener, err := openListener(host, opts, stdout, listen)
+	if errors.Is(err, errDefaultPortsBusy) {
+		servers, lookupErr := runningDefaultServers(ctx, registry, host)
+		if lookupErr != nil {
+			return lookupErr
+		}
+		if !confirmStopServers(stdin, stdout, len(servers)) {
+			return nil
+		}
+		stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if err := stopServers(stopCtx, servers); err != nil {
+			return err
+		}
+		listener, err = waitForListener(stopCtx, host, defaultPortStart, listen)
+	}
 	if err != nil {
-		return fmt.Errorf("listen on local port %d: %w", opts.port, err)
+		if opts.portSet {
+			return fmt.Errorf("listen on %s port %d: %w", host, opts.port, err)
+		}
+		return fmt.Errorf("listen on %s: %w", host, err)
 	}
 
+	port, err := listenerPort(listener.Addr())
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	instance, err := registry.Register(host, port)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	defer func() { _ = instance.Close() }()
 	server := &http.Server{
-		Handler:           app,
+		Handler:           instance.Handler(app),
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
@@ -114,22 +169,18 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 		serveErrors <- server.Serve(listener)
 	}()
 
-	port, err := listenerPort(listener.Addr())
-	if err != nil {
-		_ = listener.Close()
-		return err
-	}
-	localURL := serverURL("localhost", port)
-	_, _ = fmt.Fprintf(stdout, "Serving Markdown from %s\n", root)
-	addresses, err := net.InterfaceAddrs()
-	if err != nil {
-		addresses = nil
-	}
-	writeServerURLs(stdout, port, addresses)
+	url := serverURL(host, port)
+	writeStartup(stdout, startupInfo{
+		Version:   "servef " + version.Number(),
+		Directory: root,
+		URL:       url,
+		FileCount: len(index.Files),
+		Discovery: discoveryDuration,
+	})
 	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
 		go func() {
-			if err := browser.Open(localURL); err != nil {
-				_, _ = fmt.Fprintf(stderr, "Could not open browser: %v\n", err)
+			if err := browser.Open(url); err != nil {
+				_, _ = fmt.Fprintf(stderr, "  could not open browser: %v\n", err)
 			}
 		}()
 	}
@@ -141,17 +192,18 @@ func run(ctx context.Context, opts options, stdout, stderr io.Writer) error {
 		}
 		return nil
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf("stop local server: %w", err)
-		}
-		return nil
+	case <-instance.StopRequested():
 	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("stop local server: %w", err)
+	}
+	return nil
 }
 
-func listenTCP4(port int) (net.Listener, error) {
-	return net.Listen("tcp4", net.JoinHostPort("0.0.0.0", strconv.Itoa(port)))
+func listen(host string, port int) (net.Listener, error) {
+	return net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 }
 
 func listenerPort(address net.Addr) (int, error) {
@@ -168,30 +220,6 @@ func listenerPort(address net.Addr) (int, error) {
 
 func serverURL(host string, port int) string {
 	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/"
-}
-
-func writeServerURLs(output io.Writer, port int, addresses []net.Addr) {
-	_, _ = fmt.Fprintf(output, "Local: %s\nHost: %s\n", serverURL("localhost", port), serverURL("0.0.0.0", port))
-	if address := primaryIPv4(addresses); address != nil {
-		_, _ = fmt.Fprintf(output, "Network: %s\n", serverURL(address.String(), port))
-	}
-}
-
-func primaryIPv4(addresses []net.Addr) net.IP {
-	for _, address := range addresses {
-		var ip net.IP
-		switch value := address.(type) {
-		case *net.IPAddr:
-			ip = value.IP
-		case *net.IPNet:
-			ip = value.IP
-		}
-		ipv4 := ip.To4()
-		if ipv4 != nil && !ipv4.IsLoopback() && !ipv4.IsUnspecified() {
-			return append(net.IP(nil), ipv4...)
-		}
-	}
-	return nil
 }
 
 func shouldOpenBrowser(noOpen bool, getenv func(string) string) bool {

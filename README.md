@@ -27,9 +27,7 @@ Requires Go 1.24 or later.
 go install github.com/flexdinesh/servef@latest
 ```
 
-See the [release guide](docs/release.md) for publishing details.
-
-## Run
+## Usage
 
 Serve the current directory:
 
@@ -43,35 +41,12 @@ Or serve another directory:
 servef path/to/markdown
 ```
 
-## Development
+Without `--port`, servef uses the first free port from `7971` through `7980`.
+Use `--host` to bind a specific IP address or `--port` to select an exact port.
+If the range is full, servef can stop all verified instances after confirmation.
 
-Requires Node.js 26 and pnpm 11.
-
-```sh
-go mod download
-pnpm install
-pnpm dev
-```
-
-Run only the frontend against committed API fixtures:
+See all options:
 
 ```sh
-pnpm dev:mock
-```
-
-Run checks:
-
-```sh
-go test ./...
-pnpm test:web
-pnpm test:release
-pnpm typecheck
-pnpm exec playwright install --with-deps chromium
-pnpm test:browser
-```
-
-Build the embedded frontend:
-
-```sh
-pnpm build:web
+servef --help
 ```
