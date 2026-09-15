@@ -23,6 +23,14 @@
   --color-destructive: #bd3029;
   --color-destructive-subtle: #fff0ef;
   --color-overlay: rgb(15 18 23 / 48%);
+  --color-syntax-comment: #57606a;
+  --color-syntax-keyword: #cf222e;
+  --color-syntax-type: #0550ae;
+  --color-syntax-function: #6639ba;
+  --color-syntax-variable: #953800;
+  --color-syntax-string: #0a3069;
+  --color-syntax-number: #0550ae;
+  --color-syntax-operator: #0550ae;
 
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
@@ -108,6 +116,14 @@
   --color-destructive: #ff827a;
   --color-destructive-subtle: #422523;
   --color-overlay: rgb(0 0 0 / 62%);
+  --color-syntax-comment: #8b949e;
+  --color-syntax-keyword: #ff7b72;
+  --color-syntax-type: #f0883e;
+  --color-syntax-function: #d2a8ff;
+  --color-syntax-variable: #79c0ff;
+  --color-syntax-string: #a5d6ff;
+  --color-syntax-number: #79c0ff;
+  --color-syntax-operator: #ff7b72;
   --shadow-control: 0 1px 2px rgb(0 0 0 / 24%);
   --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 42%);
 }
@@ -132,6 +148,14 @@
     --color-destructive: #ff827a;
     --color-destructive-subtle: #422523;
     --color-overlay: rgb(0 0 0 / 62%);
+    --color-syntax-comment: #8b949e;
+    --color-syntax-keyword: #ff7b72;
+    --color-syntax-type: #f0883e;
+    --color-syntax-function: #d2a8ff;
+    --color-syntax-variable: #79c0ff;
+    --color-syntax-string: #a5d6ff;
+    --color-syntax-number: #79c0ff;
+    --color-syntax-operator: #ff7b72;
     --shadow-control: 0 1px 2px rgb(0 0 0 / 24%);
     --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 42%);
   }
@@ -157,6 +181,14 @@
   --color-destructive: #fb4934;
   --color-destructive-subtle: #4b2b28;
   --color-overlay: rgb(0 0 0 / 62%);
+  --color-syntax-comment: #928374;
+  --color-syntax-keyword: #fe8019;
+  --color-syntax-type: #fabd2f;
+  --color-syntax-function: #fabd2f;
+  --color-syntax-variable: #ebdbb2;
+  --color-syntax-string: #b8bb26;
+  --color-syntax-number: #d3869b;
+  --color-syntax-operator: #fe8019;
   --shadow-control: 0 1px 2px rgb(0 0 0 / 25%);
   --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 55%);
 }
@@ -181,6 +213,14 @@
   --color-destructive: #f38ba8;
   --color-destructive-subtle: #46303d;
   --color-overlay: rgb(17 17 27 / 72%);
+  --color-syntax-comment: #6c7086;
+  --color-syntax-keyword: #cba6f7;
+  --color-syntax-type: #f9e2af;
+  --color-syntax-function: #89b4fa;
+  --color-syntax-variable: #f5e0dc;
+  --color-syntax-string: #a6e3a1;
+  --color-syntax-number: #fab387;
+  --color-syntax-operator: #89dceb;
   --shadow-control: 0 1px 2px rgb(17 17 27 / 35%);
   --shadow-overlay: 0 1.5rem 4rem rgb(17 17 27 / 65%);
 }
@@ -205,6 +245,14 @@
   --color-destructive: #bf616a;
   --color-destructive-subtle: #4c333a;
   --color-overlay: rgb(20 24 31 / 68%);
+  --color-syntax-comment: #616e87;
+  --color-syntax-keyword: #81a1c1;
+  --color-syntax-type: #8fbcbb;
+  --color-syntax-function: #88c0d0;
+  --color-syntax-variable: #d8dee9;
+  --color-syntax-string: #a3be8c;
+  --color-syntax-number: #b48ead;
+  --color-syntax-operator: #81a1c1;
   --shadow-control: 0 1px 2px rgb(20 24 31 / 35%);
   --shadow-overlay: 0 1.5rem 4rem rgb(20 24 31 / 65%);
 }
@@ -229,6 +277,14 @@
   --color-destructive: #dc322f;
   --color-destructive-subtle: #f5d5cc;
   --color-overlay: rgb(0 43 54 / 38%);
+  --color-syntax-comment: #93a1a1;
+  --color-syntax-keyword: #859900;
+  --color-syntax-type: #cb4b16;
+  --color-syntax-function: #268bd2;
+  --color-syntax-variable: #268bd2;
+  --color-syntax-string: #2aa198;
+  --color-syntax-number: #2aa198;
+  --color-syntax-operator: #859900;
   --shadow-control: 0 1px 2px rgb(0 43 54 / 10%);
   --shadow-overlay: 0 1.5rem 4rem rgb(0 43 54 / 25%);
 }
@@ -864,6 +920,55 @@ article code {
   font-family: var(--font-mono);
   font-size: 0.875em;
   font-variant-ligatures: none;
+}
+
+.syntax-highlight [class^="syntax-c"] {
+  color: var(--color-syntax-comment);
+  font-style: italic;
+}
+
+.syntax-highlight [class^="syntax-k"] {
+  color: var(--color-syntax-keyword);
+}
+
+.syntax-highlight [class^="syntax-n"] {
+  color: var(--color-syntax-variable);
+}
+
+.syntax-highlight :is(.syntax-nb, .syntax-bp, .syntax-nd, .syntax-ni, .syntax-nf, .syntax-fm) {
+  color: var(--color-syntax-function);
+}
+
+.syntax-highlight :is(.syntax-kt, .syntax-nc, .syntax-no, .syntax-ne, .syntax-nt) {
+  color: var(--color-syntax-type);
+}
+
+.syntax-highlight [class^="syntax-s"] {
+  color: var(--color-syntax-string);
+}
+
+.syntax-highlight :is(.syntax-l, .syntax-ld, [class^="syntax-m"]) {
+  color: var(--color-syntax-number);
+}
+
+.syntax-highlight [class^="syntax-o"] {
+  color: var(--color-syntax-operator);
+}
+
+.syntax-highlight :is(.syntax-err, .syntax-gd, .syntax-gr, .syntax-gt) {
+  color: var(--color-destructive);
+}
+
+.syntax-highlight .syntax-gi {
+  color: var(--color-success);
+}
+
+.syntax-highlight .syntax-ge {
+  font-style: italic;
+}
+
+.syntax-highlight .syntax-gs {
+  font-weight: 700;
 }
 
 article :not(pre) > code {

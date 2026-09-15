@@ -65,6 +65,7 @@ Use only semantic tokens:
 - `--color-warning`, `--color-warning-subtle`: recoverable warnings and search highlights
 - `--color-destructive`, `--color-destructive-subtle`: failures and destructive actions
 - `--color-overlay`: modal backdrop only
+- `--color-syntax-*`: fenced-code token roles; comments, keywords, types, functions, variables, strings, numbers, and operators
 
 All themes use the same roles. The control offers Light, Dark, System, and named editor palettes. Each palette declares light/dark polarity; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with resolved polarity. Never branch component styling into unrelated dark variants.
 
